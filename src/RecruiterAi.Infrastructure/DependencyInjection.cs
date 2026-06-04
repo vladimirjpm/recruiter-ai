@@ -1,7 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using RecruiterAi.Domain.Interfaces;
+using RecruiterAi.Infrastructure.Options;
+using RecruiterAi.Infrastructure.Pdf;
 using RecruiterAi.Infrastructure.Persistence;
+using RecruiterAi.Infrastructure.Services;
 
 namespace RecruiterAi.Infrastructure;
 
@@ -31,6 +35,20 @@ public static class DependencyInjection
                 // Migrations live in the Infrastructure assembly, not the API project.
                 npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
             }));
+
+        services.AddScoped<ICvParserService, PdfPigCvParser>();
+
+        // OpenAI options bound from "OpenAI" section; key validation is deferred to
+        // service construction so tests can replace the implementation with a stub.
+        services.Configure<LlmOptions>(opt =>
+        {
+            opt.Provider       = configuration["Llm:Provider"]       ?? "OpenAI";
+            opt.ApiKey         = configuration["Llm:ApiKey"]         ?? string.Empty;
+            opt.Model          = configuration["Llm:Model"]          ?? "gpt-4o-mini";
+            opt.EmbeddingModel = configuration["Llm:EmbeddingModel"] ?? "text-embedding-3-small";
+        });
+        services.AddScoped<IResumeEvaluationService, OpenAiResumeEvaluationService>();
+        services.AddScoped<ICvGenerationService, OpenAiCvGenerationService>();
 
         return services;
     }

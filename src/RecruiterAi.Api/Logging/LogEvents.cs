@@ -32,8 +32,10 @@ public static class LogEvents
     public static readonly Microsoft.Extensions.Logging.EventId EvaluationCompleted = new(3010, nameof(EvaluationCompleted));
     public static readonly Microsoft.Extensions.Logging.EventId EvaluationFailed = new(3011, nameof(EvaluationFailed));
 
-    // CV Generator (Stage 6)
-    public static readonly Microsoft.Extensions.Logging.EventId GenerationBatchStarted = new(4001, nameof(GenerationBatchStarted));
+    // CV Generator (Stage 4)
+    public static readonly Microsoft.Extensions.Logging.EventId GenerationBatchStarted   = new(4001, nameof(GenerationBatchStarted));
     public static readonly Microsoft.Extensions.Logging.EventId GenerationBatchCompleted = new(4002, nameof(GenerationBatchCompleted));
-    public static readonly Microsoft.Extensions.Logging.EventId GenerationBatchFailed = new(4003, nameof(GenerationBatchFailed));
+    public static readonly Microsoft.Extensions.Logging.EventId GenerationBatchFailed    = new(4003, nameof(GenerationBatchFailed));
+    public static readonly Microsoft.Extensions.Logging.EventId RequirementsInferred     = new(4004, nameof(RequirementsInferred));
+    public static readonly Microsoft.Extensions.Logging.EventId CandidatesGenerated      = new(4005, nameof(CandidatesGenerated));
 }

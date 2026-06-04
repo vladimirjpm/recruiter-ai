@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using RecruiterAi.Infrastructure;
 using RecruiterAi.Infrastructure.Persistence;
@@ -42,6 +43,12 @@ builder.Services.AddCors(opt =>
         .AllowAnyMethod()
         .WithOrigins(allowedOrigins));
 });
+
+// Limit multipart uploads to 25 MB total; per-file limit enforced in CandidatesController.
+// Kestrel MaxRequestBodySize is set to the same value so the server rejects
+// oversized raw bodies before ASP.NET Core starts reading them.
+builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 25L * 1024 * 1024);
+builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = 25L * 1024 * 1024);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
