@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend · build + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore RecruiterAi.slnx
+
+      - name: Build
+        run: dotnet build RecruiterAi.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test RecruiterAi.slnx --configuration Release --no-build --verbosity normal
+
+  frontend:
+    name: Frontend · build
+    runs-on: ubuntu-latest
+    # Enables itself automatically once the web/ directory exists (Stage 2/3).
+    if: ${{ hashFiles('web/package.json') != '' }}
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build

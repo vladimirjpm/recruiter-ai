@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="RecruiterAi.Api/RecruiterAi.Api.csproj" />
+  <Project Path="RecruiterAi.Domain/RecruiterAi.Domain.csproj" />
+  <Project Path="RecruiterAi.Infrastructure/RecruiterAi.Infrastructure.csproj" />
+  <Project Path="RecruiterAi.Tests/RecruiterAi.Tests.csproj" />
+</Solution>

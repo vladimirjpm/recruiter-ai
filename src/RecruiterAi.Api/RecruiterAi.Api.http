@@ -1,0 +1,7 @@
+@HostAddress = http://localhost:5150
+
+### Health check
+GET {{HostAddress}}/health
+
+### Swagger UI
+GET {{HostAddress}}/swagger

@@ -1,0 +1,10 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+.env
+.env.local
+node_modules/
+dist/
+interview-talking-points.md
