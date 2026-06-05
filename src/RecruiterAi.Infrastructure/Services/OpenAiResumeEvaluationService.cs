@@ -19,6 +19,10 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
     private const string SchemaVersion = "v1";
     private const decimal EvalTemperature = 0m;
     private const int MaxRetries = 3;
+    // ~50k chars ≈ ~12-15k tokens — comfortably inside gpt-4o-mini's 128k context
+    // even after the prompt template and JSON-schema overhead. Prevents a malicious
+    // or pathological CV (millions of chars) from triggering OpenAI 400s after upload.
+    private const int MaxRawTextChars = 50_000;
 
     private readonly ChatClient _chatClient;
     private readonly string _model;
@@ -54,7 +58,17 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
 
         var sw = Stopwatch.StartNew();
 
-        var messages = BuildMessages(candidate, position);
+        var rawText = candidate.RawText;
+        if (rawText.Length > MaxRawTextChars)
+        {
+            _logger.LogWarning(
+                "CV raw text truncated from {OriginalLen} to {MaxLen} chars before OpenAI call. " +
+                "EvaluationId={EvaluationId} CandidateId={CandidateId}",
+                rawText.Length, MaxRawTextChars, evaluationId, candidate.Id);
+            rawText = rawText[..MaxRawTextChars];
+        }
+
+        var messages = BuildMessages(rawText, position);
         var callOptions = new ChatCompletionOptions
         {
             Temperature = (float)EvalTemperature,
@@ -176,7 +190,7 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
             $"OpenAI call failed after {MaxRetries} attempts.", lastEx);
     }
 
-    private static List<ChatMessage> BuildMessages(Candidate candidate, Position position)
+    private static List<ChatMessage> BuildMessages(string rawText, Position position)
     {
         var requiredSkills  = string.Join(", ", position.RequiredSkills);
         var niceToHaveSkills = position.NiceToHaveSkills.Count > 0
@@ -208,7 +222,7 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
             Nice to Have: {niceToHaveSkills}
 
             <cv>
-            {candidate.RawText}
+            {rawText}
             </cv>
 
             Return a JSON evaluation object per the provided schema.

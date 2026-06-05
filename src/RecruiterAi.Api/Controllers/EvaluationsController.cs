@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using RecruiterAi.Api.Logging;
 using RecruiterAi.Domain.Entities;
@@ -19,13 +21,27 @@ public class EvaluationsController(
     ILogger<EvaluationsController> logger)
     : ControllerBase
 {
+    // Hard upper bound on candidates per /screen request — protects OpenAI cost
+    // and request latency (each candidate is a sequential 2-10s OpenAI roundtrip).
+    // TODO Future: background job workflow with bounded concurrency, partial-failure
+    // tracking, and progress polling — would let us lift this limit safely.
+    private const int MaxCandidatesPerScreen = 10;
+
     // .NET: [HttpPost("screen")]
     [HttpPost("screen")]
+    [EnableRateLimiting("openai-cost")]
     public async Task<IActionResult> Screen(
         Guid positionId,
         [FromBody] ScreenRequestDto dto,
         CancellationToken ct)
     {
+        if (dto.CandidateIds.Count > MaxCandidatesPerScreen)
+            return BadRequest(new
+            {
+                error = $"Too many candidates: {dto.CandidateIds.Count}. " +
+                        $"Maximum {MaxCandidatesPerScreen} per request.",
+            });
+
         var position = await db.Positions.FindAsync([positionId], ct);
         if (position is null) return NotFound();
 
@@ -113,7 +129,7 @@ public class EvaluationsController(
 
         var csv = BuildCsv(result.OrderByDescending(e => e.Score).ToList());
         var bytes = Encoding.UTF8.GetBytes(csv);
-        var fileName = $"evaluations-{position.Title.Replace(' ', '-')}-{positionId:N}.csv";
+        var fileName = $"evaluations-{SanitizeFileName(position.Title)}-{positionId:N}.csv";
 
         return File(bytes, "text/csv; charset=utf-8", fileName);
     }
@@ -178,8 +194,27 @@ public class EvaluationsController(
     }
 
     // Wraps a field in double quotes and escapes any embedded double quotes.
-    private static string CsvEscape(string value) =>
-        '"' + value.Replace("\"", "\"\"") + '"';
+    // CSV injection guard: Excel/LibreOffice evaluate cells starting with =, +, -, @, \t, \r
+    // as formulas — even inside quotes. Prefix a single-quote so the value is treated as text.
+    private static string CsvEscape(string value)
+    {
+        var safe = value.Length > 0 && CsvInjectionChars.Contains(value[0])
+            ? "'" + value
+            : value;
+        return '"' + safe.Replace("\"", "\"\"") + '"';
+    }
+
+    private static readonly HashSet<char> CsvInjectionChars = ['=', '+', '-', '@', '\t', '\r'];
+
+    // Strip everything except letters, digits, dash, underscore — keeps the filename
+    // safe for Content-Disposition and prevents header injection via CR/LF.
+    private static string SanitizeFileName(string value)
+    {
+        var cleaned = SafeFileNameRegex.Replace(value, "-");
+        return string.IsNullOrEmpty(cleaned) ? "untitled" : cleaned;
+    }
+
+    private static readonly Regex SafeFileNameRegex = new(@"[^A-Za-z0-9_-]+", RegexOptions.Compiled);
 }
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────

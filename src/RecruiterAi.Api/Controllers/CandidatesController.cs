@@ -21,7 +21,14 @@ public class CandidatesController(
 {
     private const int MaxFiles = 10;
     private const long MaxFileSizeBytes = 5L * 1024 * 1024; // 5 MB
+    // PDFs that extract to less text than this are almost certainly scanned/image-only —
+    // sending them to OpenAI wastes tokens and produces meaningless evaluations.
+    private const int MinExtractedTextLength = 100;
     private static readonly byte[] PdfMagicBytes = [(byte)'%', (byte)'P', (byte)'D', (byte)'F'];
+
+    // TODO Production: all destructive and OpenAI-cost endpoints below need JWT-based
+    // authentication, tenant isolation (candidates/positions scoped per user/org),
+    // and audit logging (who deleted/screened what, when). Single-user MVP only.
 
     // .NET: [HttpGet]
     [HttpGet]
@@ -49,12 +56,24 @@ public class CandidatesController(
         if (candidate.StoragePath is null)
             return NotFound(new { error = "No file associated with this candidate." });
 
+        // Reject absolute paths up-front: Path.Combine(root, "/etc/passwd") returns "/etc/passwd"
+        // on Linux — the StartsWith check below would still catch it, but failing early is clearer.
+        if (Path.IsPathRooted(candidate.StoragePath))
+        {
+            logger.LogWarning(
+                "Rejected absolute StoragePath. CandidateId={Id} StoragePath={Path}",
+                id, candidate.StoragePath);
+            return BadRequest(new { error = "Invalid file path." });
+        }
+
         var uploadRoot   = Path.GetFullPath(GetUploadRoot());
         var absolutePath = Path.GetFullPath(Path.Combine(uploadRoot, candidate.StoragePath));
 
         // Prevent path traversal: resolved path must stay inside the upload root.
-        if (!absolutePath.StartsWith(uploadRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            && !absolutePath.Equals(uploadRoot, StringComparison.OrdinalIgnoreCase))
+        // StringComparison.Ordinal is correct on Linux (case-sensitive paths) — using
+        // OrdinalIgnoreCase would let "/srv/Uploads/x" match an actual root "/srv/uploads".
+        if (!absolutePath.StartsWith(uploadRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            && !absolutePath.Equals(uploadRoot, StringComparison.Ordinal))
         {
             logger.LogWarning(
                 "Path traversal attempt blocked. CandidateId={Id} StoragePath={Path}",
@@ -81,12 +100,18 @@ public class CandidatesController(
         var candidate = await db.Candidates.FindAsync([id], ct);
         if (candidate is null) return NotFound();
 
-        if (candidate.StoragePath is not null)
+        if (candidate.StoragePath is not null && !Path.IsPathRooted(candidate.StoragePath))
         {
-            var uploadRoot = GetUploadRoot();
+            var uploadRoot = Path.GetFullPath(GetUploadRoot());
             // GetFullPath normalises the mixed slashes that come from the stored relative path.
             var absolutePath = Path.GetFullPath(Path.Combine(uploadRoot, candidate.StoragePath));
-            if (System.IO.File.Exists(absolutePath))
+
+            // Same Ordinal traversal guard as DownloadFile — we are about to call File.Delete.
+            var insideRoot =
+                absolutePath.StartsWith(uploadRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                || absolutePath.Equals(uploadRoot, StringComparison.Ordinal);
+
+            if (insideRoot && System.IO.File.Exists(absolutePath))
             {
                 System.IO.File.Delete(absolutePath);
             }
@@ -219,8 +244,6 @@ public class CandidatesController(
                 try
                 {
                     rawText = await cvParser.ParseAsync(ms, ct);
-                    // TODO Future: warn or reject when extracted text is too short (e.g. < 100 chars) —
-                    // likely a scanned image-only PDF that PdfPig cannot read.
                     logger.LogInformation(LogEvents.PdfParseSuccess,
                         "PDF parsed successfully. CandidateId={Id} FileFingerprint={Fp}",
                         candidateId, PiiSafe.Fingerprint(file.FileName));
@@ -233,6 +256,21 @@ public class CandidatesController(
                     return UnprocessableEntity(new
                     {
                         error    = "Failed to parse the PDF file.",
+                        fileName = file.FileName,
+                    });
+                }
+
+                // Guard against scanned/image-only PDFs: PdfPig returns near-empty text
+                // and the OpenAI call would burn tokens producing meaningless output.
+                if (rawText.Trim().Length < MinExtractedTextLength)
+                {
+                    logger.LogWarning(LogEvents.CvUploadRejected,
+                        "CV upload rejected: extracted text too short. CandidateId={Id} Length={Len}",
+                        candidateId, rawText.Trim().Length);
+                    return UnprocessableEntity(new
+                    {
+                        error    = "PDF contains no readable text — likely a scanned/image-only document. " +
+                                   "Please upload a text-based PDF.",
                         fileName = file.FileName,
                     });
                 }

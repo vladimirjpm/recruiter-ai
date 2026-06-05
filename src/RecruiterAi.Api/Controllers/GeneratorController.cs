@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using RecruiterAi.Api.Logging;
 using RecruiterAi.Domain.Interfaces;
 using RecruiterAi.Infrastructure.Persistence;
@@ -17,6 +18,7 @@ public class GeneratorController(
 {
     // .NET: [HttpPost("generate")]
     [HttpPost("generate")]
+    [EnableRateLimiting("openai-cost")]
     public async Task<IActionResult> Generate(
         Guid positionId,
         [FromBody] GenerateRequestDto dto,

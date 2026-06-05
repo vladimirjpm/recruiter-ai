@@ -36,7 +36,8 @@ public static class DependencyInjection
                 npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
             }));
 
-        services.AddScoped<ICvParserService, PdfPigCvParser>();
+        // PdfPigCvParser is stateless — singleton avoids per-request allocation.
+        services.AddSingleton<ICvParserService, PdfPigCvParser>();
 
         // OpenAI options bound from "OpenAI" section; key validation is deferred to
         // service construction so tests can replace the implementation with a stub.
@@ -50,8 +51,11 @@ public static class DependencyInjection
             opt.Model          = configuration["Llm:Model"]          ?? "gpt-4o-mini";
             opt.EmbeddingModel = configuration["Llm:EmbeddingModel"] ?? "text-embedding-3-small";
         });
-        services.AddScoped<IResumeEvaluationService, OpenAiResumeEvaluationService>();
-        services.AddScoped<ICvGenerationService, OpenAiCvGenerationService>();
+        // OpenAI services are stateless and own a long-lived ChatClient (which owns
+        // an HttpClient internally). Singleton lifetime avoids socket exhaustion and
+        // reuses the underlying connection pool across requests.
+        services.AddSingleton<IResumeEvaluationService, OpenAiResumeEvaluationService>();
+        services.AddSingleton<ICvGenerationService, OpenAiCvGenerationService>();
 
         return services;
     }
