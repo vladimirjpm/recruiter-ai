@@ -17,5 +17,29 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: recruiter-ai-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Inside the compose network the DB host is the service name, not localhost.
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=recruiter_ai;Username=recruiter;Password=recruiter"
+      # OpenAI key is injected from the host shell / .env file — never committed.
+      Llm__ApiKey: ${LLM_API_KEY:?Set LLM_API_KEY in your environment or .env file}
+      # Frontend dev origin; add the deployed URL when shipping.
+      Cors__AllowedOrigins__0: "http://localhost:5173"
+    ports:
+      - "5150:8080"
+    volumes:
+      # Persist uploaded CVs across container restarts.
+      - recruiter_ai_uploads:/app/uploads
+
 volumes:
   recruiter_ai_pgdata:
+  recruiter_ai_uploads:

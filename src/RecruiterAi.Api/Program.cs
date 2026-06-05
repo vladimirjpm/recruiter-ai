@@ -113,6 +113,15 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// Auto-apply EF migrations on startup for containerised single-instance deploys.
+// TODO Production multi-instance: move to an explicit CI step (`dotnet ef database update`)
+// to avoid two replicas racing on the same migration.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 

@@ -1,0 +1,19 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/*.user
+
+# Frontend / docs / git — not needed in the API image
+frontend/
+.git/
+.github/
+.claude/
+*.md
+recruiter-ai-plan.html
+
+# Local secrets and runtime data
+**/appsettings.Development.json
+**/appsettings.Local.json
+src/RecruiterAi.Api/uploads/
