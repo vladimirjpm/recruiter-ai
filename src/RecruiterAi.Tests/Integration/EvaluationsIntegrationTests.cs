@@ -142,6 +142,101 @@ public class EvaluationsIntegrationTests : IClassFixture<EvaluationsWebAppFactor
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    // ── Deduplication ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Screen_RepeatScreening_CreatesTwoRowsInDb()
+    {
+        var positionId  = await CreatePositionAsync();
+        var candidateId = await UploadCandidateAsync();
+
+        await _client.PostAsJsonAsync(
+            $"/api/positions/{positionId}/screen",
+            new { candidateIds = new[] { candidateId } });
+        await _client.PostAsJsonAsync(
+            $"/api/positions/{positionId}/screen",
+            new { candidateIds = new[] { candidateId } });
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var count = await db.Evaluations.CountAsync(
+            e => e.PositionId == positionId && e.CandidateId == candidateId);
+
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public async Task GetEvaluations_DefaultLatestOnly_ReturnsOneRowPerCandidate()
+    {
+        var positionId  = await CreatePositionAsync();
+        var candidateId = await UploadCandidateAsync();
+
+        // Screen twice — two rows in DB for the same candidate
+        await _client.PostAsJsonAsync(
+            $"/api/positions/{positionId}/screen",
+            new { candidateIds = new[] { candidateId } });
+        await _client.PostAsJsonAsync(
+            $"/api/positions/{positionId}/screen",
+            new { candidateIds = new[] { candidateId } });
+
+        var response = await _client.GetAsync($"/api/positions/{positionId}/evaluations");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(body);
+        var items = doc.RootElement.EnumerateArray().ToList();
+
+        // Default (latestOnly) must deduplicate — only one row despite two in DB
+        Assert.Single(items);
+    }
+
+    [Fact]
+    public async Task GetEvaluations_IncludeHistory_ReturnsAllRows()
+    {
+        var positionId  = await CreatePositionAsync();
+        var candidateId = await UploadCandidateAsync();
+
+        await _client.PostAsJsonAsync(
+            $"/api/positions/{positionId}/screen",
+            new { candidateIds = new[] { candidateId } });
+        await _client.PostAsJsonAsync(
+            $"/api/positions/{positionId}/screen",
+            new { candidateIds = new[] { candidateId } });
+
+        var response = await _client.GetAsync(
+            $"/api/positions/{positionId}/evaluations?includeHistory=true");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(body);
+        var items = doc.RootElement.EnumerateArray().ToList();
+
+        // includeHistory=true must return all audit rows
+        Assert.Equal(2, items.Count);
+    }
+
+    [Fact]
+    public async Task ExportCsv_DefaultLatestOnly_DoesNotDuplicateCandidates()
+    {
+        var positionId  = await CreatePositionAsync();
+        var candidateId = await UploadCandidateAsync();
+
+        await _client.PostAsJsonAsync(
+            $"/api/positions/{positionId}/screen",
+            new { candidateIds = new[] { candidateId } });
+        await _client.PostAsJsonAsync(
+            $"/api/positions/{positionId}/screen",
+            new { candidateIds = new[] { candidateId } });
+
+        var response = await _client.GetAsync($"/api/positions/{positionId}/evaluations/export");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var csv = await response.Content.ReadAsStringAsync();
+        // Header + exactly one data row (no duplicate)
+        var dataLines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToList();
+        Assert.Single(dataLines);
+    }
+
     // ── CSV export ────────────────────────────────────────────────────────────
 
     [Fact]

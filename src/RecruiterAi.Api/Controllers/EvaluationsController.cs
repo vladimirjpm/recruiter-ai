@@ -58,13 +58,13 @@ public class EvaluationsController(
                 });
             }
 
-            // TODO Future: define re-evaluation behavior — currently creates a new Evaluation every
-            // time the same candidate is screened for the same position. Options: keep all history
-            // (current), replace the latest, or reject with 409 Conflict if one already exists.
+            // Each screen intentionally appends a new row for full audit trail (model, tokens, cost, reasoning).
+            // Deduplication for ranking UI is handled at query time via LatestPerCandidate().
             db.Evaluations.Add(evaluation);
             await db.SaveChangesAsync(ct);
 
-            results.Add(ToDto(evaluation, candidate));
+            // IsStale is always false immediately after screening.
+            results.Add(ToDto(evaluation, candidate, positionUpdatedAt: null));
         }
 
         return Ok(results);
@@ -72,23 +72,10 @@ public class EvaluationsController(
 
     // .NET: [HttpGet("evaluations")]
     [HttpGet("evaluations")]
-    public async Task<IActionResult> List(Guid positionId, CancellationToken ct)
-    {
-        var positionExists = await db.Positions.AnyAsync(p => p.Id == positionId, ct);
-        if (!positionExists) return NotFound();
-
-        var evaluations = await db.Evaluations
-            .Where(e => e.PositionId == positionId)
-            .Include(e => e.Candidate)
-            .OrderByDescending(e => e.Score)
-            .ToListAsync(ct);
-
-        return Ok(evaluations.Select(e => ToDto(e, e.Candidate)));
-    }
-
-    // .NET: [HttpGet("evaluations/export")]
-    [HttpGet("evaluations/export")]
-    public async Task<IActionResult> ExportCsv(Guid positionId, CancellationToken ct)
+    public async Task<IActionResult> List(
+        Guid positionId,
+        [FromQuery] bool includeHistory = false,
+        CancellationToken ct = default)
     {
         var position = await db.Positions.FindAsync([positionId], ct);
         if (position is null) return NotFound();
@@ -96,10 +83,35 @@ public class EvaluationsController(
         var evaluations = await db.Evaluations
             .Where(e => e.PositionId == positionId)
             .Include(e => e.Candidate)
-            .OrderByDescending(e => e.Score)
             .ToListAsync(ct);
 
-        var csv = BuildCsv(evaluations);
+        var result = includeHistory
+            ? evaluations
+            : LatestPerCandidate(evaluations);
+
+        return Ok(result.OrderByDescending(e => e.Score).Select(e => ToDto(e, e.Candidate, position.UpdatedAt)));
+    }
+
+    // .NET: [HttpGet("evaluations/export")]
+    [HttpGet("evaluations/export")]
+    public async Task<IActionResult> ExportCsv(
+        Guid positionId,
+        [FromQuery] bool includeHistory = false,
+        CancellationToken ct = default)
+    {
+        var position = await db.Positions.FindAsync([positionId], ct);
+        if (position is null) return NotFound();
+
+        var evaluations = await db.Evaluations
+            .Where(e => e.PositionId == positionId)
+            .Include(e => e.Candidate)
+            .ToListAsync(ct);
+
+        var result = includeHistory
+            ? evaluations
+            : LatestPerCandidate(evaluations);
+
+        var csv = BuildCsv(result.OrderByDescending(e => e.Score).ToList());
         var bytes = Encoding.UTF8.GetBytes(csv);
         var fileName = $"evaluations-{position.Title.Replace(' ', '-')}-{positionId:N}.csv";
 
@@ -108,7 +120,14 @@ public class EvaluationsController(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static EvaluationDto ToDto(Evaluation e, Candidate c) => new(
+    // Each candidate may have been screened multiple times; keep only the newest row.
+    private static List<Evaluation> LatestPerCandidate(List<Evaluation> evaluations) =>
+        evaluations
+            .GroupBy(e => e.CandidateId)
+            .Select(g => g.MaxBy(e => e.CreatedAt)!)
+            .ToList();
+
+    private static EvaluationDto ToDto(Evaluation e, Candidate c, DateTimeOffset? positionUpdatedAt) => new(
         e.Id,
         c.Id,
         c.Name,
@@ -126,7 +145,8 @@ public class EvaluationsController(
         e.InputTokens,
         e.OutputTokens,
         e.EstimatedCost,
-        e.CreatedAt);
+        e.CreatedAt,
+        IsStale: positionUpdatedAt.HasValue && e.CreatedAt < positionUpdatedAt.Value);
 
     private static string BuildCsv(List<Evaluation> evaluations)
     {
@@ -185,4 +205,6 @@ public record EvaluationDto(
     int? InputTokens,
     int? OutputTokens,
     decimal? EstimatedCost,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    // True when position was edited after this evaluation was created.
+    bool IsStale = false);

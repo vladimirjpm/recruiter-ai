@@ -522,10 +522,10 @@
       </div>
     </div>
 
-    <div class="stage">
-      <div class="stage-badge">4</div>
+    <div class="stage" style="border-color:#166534;background:#052e16">
+      <div class="stage-badge" style="background:#166534;color:#4ade80">✓</div>
       <div class="stage-info">
-        <h3>Validation Lab — Synthetic CV Generator · Domain-Agnostic · Slider 1–30</h3>
+        <h3 style="color:#4ade80">Validation Lab — Synthetic CV Generator · Domain-Agnostic · Slider 1–30 <span style="font-size:0.75rem;font-weight:400;color:#4ade80;margin-left:0.5rem">DONE</span></h3>
         <p>Works for any profession (Software Engineer, Bus Driver, Electrician, Cleaner, Nurse, etc.). The generator first infers requirements from the job description, then produces a balanced mix of candidates across 10 fit categories. No hardcoded IT-specific skills.</p>
 
         <div class="note" style="margin-top:0.6rem;margin-bottom:0.6rem;background:#0c1a3a;border-color:#1e40af;color:#dbeafe">
@@ -539,46 +539,48 @@
         </div>
 
         <div class="stage-tasks">
-          <div class="task key">POST /api/generate/cvs — position_id + count (1–30, default 10) + optional per-category mix override</div>
-          <div class="task key">Step 1 — <strong style="color:#e2e8f0">infer requirements</strong>: GPT-4o mini reads job description → extracts key skills, certifications, experience constraints, deal-breakers (domain-agnostic)</div>
-          <div class="task key">Step 2 — <strong style="color:#e2e8f0">balanced distribution</strong> across 10 fit categories:
-            <code style="color:#3b82f6">excellent_fit</code>,
-            <code style="color:#3b82f6">strong_fit</code>,
-            <code style="color:#3b82f6">medium_fit</code>,
-            <code style="color:#3b82f6">weak_fit</code>,
-            <code style="color:#3b82f6">overqualified</code>,
-            <code style="color:#3b82f6">underqualified</code>,
-            <code style="color:#3b82f6">missing_key_requirement</code>,
-            <code style="color:#3b82f6">career_switcher</code>,
-            <code style="color:#3b82f6">related_industry</code>,
-            <code style="color:#3b82f6">risk_profile</code>
+          <div class="task key" style="color:#4ade80">✓ POST /api/generate/cvs — position_id + count (1–30, default 10) + optional per-category mix override</div>
+          <div class="task key" style="color:#4ade80">✓ Step 1 — <strong style="color:#4ade80">infer requirements</strong>: GPT-4o mini reads job description → extracts key skills, certifications, experience constraints, deal-breakers (domain-agnostic)</div>
+          <div class="task key" style="color:#4ade80">✓ Step 2 — <strong style="color:#4ade80">balanced distribution</strong> across 10 fit categories:
+            <code style="color:#4ade80">excellent_fit</code>,
+            <code style="color:#4ade80">strong_fit</code>,
+            <code style="color:#4ade80">medium_fit</code>,
+            <code style="color:#4ade80">weak_fit</code>,
+            <code style="color:#4ade80">overqualified</code>,
+            <code style="color:#4ade80">underqualified</code>,
+            <code style="color:#4ade80">missing_key_requirement</code>,
+            <code style="color:#4ade80">career_switcher</code>,
+            <code style="color:#4ade80">related_industry</code>,
+            <code style="color:#4ade80">risk_profile</code>
           </div>
-          <div class="task key">Default mix for count=10 → 2 excellent · 2 strong · 2 medium · 1 weak · 1 overqualified · 1 missing_key_requirement · 1 career_switcher. Distribution scales proportionally for other counts</div>
-          <div class="task key">Each CV must contain: realistic fake name, fake email, realistic work history, realistic skills, education/certifications if relevant, expected_fit_level</div>
-          <div class="task key">All generated data is fake: names, emails, phone numbers, company names. Realistic for the inferred domain only</div>
-          <div class="task key">Domain examples — <em>Bus Driver</em>: driving licence class, years on the road, safety record, shift availability · <em>Electrician</em>: certification level, residential vs industrial experience, safety record · <em>Cleaner</em>: commercial / hotel / private experience, availability</div>
-          <div class="task key">Save to candidates: source=generated, expected_fit_level, expected_score_range, raw_text</div>
-          <div class="task key">Generated CVs flow through the <strong style="color:#e2e8f0">exact same evaluation pipeline</strong> as uploaded CVs — no separate scoring path. Validates screening logic across candidate quality levels and job domains</div>
-          <div class="task">Save batch metadata to cv_generation_batches (mix counts per category, inferred_requirements)</div>
-          <div class="task">GET /api/generate/batches — generation history with expected vs actual score comparison</div>
+          <div class="task key" style="color:#4ade80">✓ Default mix for count=10 → 2 excellent · 2 strong · 2 medium · 1 weak · 1 overqualified · 1 missing_key_requirement · 1 career_switcher. Distribution scales proportionally for other counts</div>
+          <div class="task key" style="color:#4ade80">✓ Each CV must contain: realistic fake name, fake email, realistic work history, realistic skills, education/certifications if relevant, expected_fit_level</div>
+          <div class="task key" style="color:#4ade80">✓ All generated data is fake: names, emails, phone numbers, company names. Realistic for the inferred domain only</div>
+          <div class="task key" style="color:#4ade80">✓ Domain examples — <em>Bus Driver</em>: driving licence class, years on the road, safety record, shift availability · <em>Electrician</em>: certification level, residential vs industrial experience, safety record · <em>Cleaner</em>: commercial / hotel / private experience, availability</div>
+          <div class="task key" style="color:#4ade80">✓ Save to candidates: source=generated, expected_fit_level, expected_score_range, raw_text</div>
+          <div class="task key" style="color:#4ade80">✓ Generated CVs flow through the <strong style="color:#4ade80">exact same evaluation pipeline</strong> as uploaded CVs — no separate scoring path. Validates screening logic across candidate quality levels and job domains</div>
+          <div class="task key" style="color:#4ade80">✓ Save batch metadata to cv_generation_batches (mix counts per category, inferred_requirements)</div>
+          <div class="task key" style="color:#4ade80">✓ GET /api/generate/batches — generation history with expected vs actual score comparison</div>
         </div>
       </div>
     </div>
 
-    <div class="stage">
-      <div class="stage-badge">5</div>
+    <div class="stage" style="border-color:#166534;background:#052e16">
+      <div class="stage-badge" style="background:#166534;color:#4ade80">✓</div>
       <div class="stage-info">
-        <h3>Frontend — React + Vite + Tailwind</h3>
-        <p>Two main screens: Screening and Generator. Dark theme, drag &amp; drop upload, results table with detail drawer</p>
+        <h3 style="color:#4ade80">Frontend — React + Vite + Tailwind <span style="font-size:0.75rem;font-weight:400;color:#4ade80;margin-left:0.5rem">DONE</span></h3>
+        <p>Two main screens: Screening and Generator. Dark theme, drag &amp; drop upload, results table with detail drawer. Verified end-to-end against the live API.</p>
         <div class="stage-tasks">
-          <div class="task key">App shell + routing + dark theme (reuse ChatBot styling)</div>
-          <div class="task key">Screening page: drag &amp; drop PDF upload + job description form + Screen button</div>
-          <div class="task key">Results table: rank, name, score badge (color-coded), match_level, reasoning preview</div>
-          <div class="task key">Detail drawer: strengths, weaknesses, matched_skills, missing_skills, red_flags, interview_questions</div>
-          <div class="task key">Generator page: select position, set count + strong/medium/weak mix, run, view list</div>
-          <div class="task">CSV export button on results page</div>
-          <div class="task">Loading states + error handling + toast notifications</div>
-          <div class="task">React Query for caching + axios client</div>
+          <div class="task key" style="color:#4ade80">✓ App shell + sidebar nav + React Router + dark Tailwind theme (<code style="color:#4ade80">frontend/</code>, Vite dev server on :5173, proxy <code style="color:#4ade80">/api → :5150</code>)</div>
+          <div class="task key" style="color:#4ade80">✓ Screening page: position selector + drag &amp; drop PDF upload (DropZone) + candidates table with row-select + Screen button</div>
+          <div class="task key" style="color:#4ade80">✓ Results table: rank, name, score badge (color-coded by match_level), match_level chip, reasoning preview, click → drawer</div>
+          <div class="task key" style="color:#4ade80">✓ Detail drawer: reasoning, strengths, weaknesses, matched_skills, missing_skills, red_flags, interview_questions, token/cost footer</div>
+          <div class="task key" style="color:#4ade80">✓ Generator page: position selector + slider 1–30 (default 10) + quick presets (5/10/20/30) + results table with FitLevelBadge across all 10 categories</div>
+          <div class="task key" style="color:#4ade80">✓ CSV export button on results page (anchor → <code style="color:#4ade80">/positions/{id}/evaluations/export</code>)</div>
+          <div class="task key" style="color:#4ade80">✓ Loading states (React Query <code style="color:#4ade80">isPending</code>/<code style="color:#4ade80">isFetching</code>) + error handling + <code style="color:#4ade80">react-hot-toast</code> notifications</div>
+          <div class="task key" style="color:#4ade80">✓ React Query (cache + invalidation across pages) + axios client (<code style="color:#4ade80">VITE_API_URL</code> for prod)</div>
+          <div class="task key" style="color:#4ade80">✓ CreatePositionModal — inline position creation from both pages</div>
+          <div class="task key" style="color:#4ade80">✓ <code style="color:#4ade80">tsc -b</code> clean · <code style="color:#4ade80">vite build</code> 283 KB / 92.5 KB gzip · verified via Claude_Preview (sidebar nav, dropdown, row select, slider, evaluations card)</div>
         </div>
       </div>
     </div>
@@ -701,7 +703,7 @@
         <br/>
         <div class="cmd-text">cd C:\_Proj\recruiter-ai\src/RecruiterAi.Api</div>
         <div class="cmd-text">dotnet run</div>
-        <div style="color:#475569;font-size:0.78rem">→ http://localhost:5100/swagger &nbsp;·&nbsp; /health &nbsp;·&nbsp; /api/positions</div>
+        <div style="color:#475569;font-size:0.78rem">→ http://localhost:5150/swagger &nbsp;·&nbsp; /health &nbsp;·&nbsp; /api/positions</div>
         <br/>
         <div class="cmd-comment"># Unit + integration tests (no DB, no OpenAI key needed)</div>
         <div class="cmd-text">dotnet test</div>
@@ -713,7 +715,7 @@
     <div class="card">
       <h2>Frontend + Config</h2>
       <div class="cmd-block">
-        <div class="cmd-text">cd recruiter-ai-ui</div>
+        <div class="cmd-text">cd C:\_Proj\recruiter-ai\frontend</div>
         <div class="cmd-text">npm install &amp;&amp; npm run dev</div>
         <div style="color:#475569;font-size:0.78rem">→ http://localhost:5173</div>
         <br/>
@@ -864,6 +866,48 @@
       Staff Engineer pre-Stage-2 review resolved 4 additional findings (DTO validation, explicit FK,
       CORS middleware order, validation tests). Stages 2–6 are unblocked.
     </p>
+  </div>
+
+  <!-- ── Known Issues & Decisions ── -->
+  <h2 class="section">Known Issues &amp; Decisions</h2>
+  <div class="card">
+    <h2>Architectural Decisions (ADRs)</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:0.83rem">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:0.4rem 0.6rem;color:#64748b;font-weight:600;border-bottom:1px solid #334155">Area</th>
+          <th style="text-align:left;padding:0.4rem 0.6rem;color:#64748b;font-weight:600;border-bottom:1px solid #334155">Decision</th>
+          <th style="text-align:left;padding:0.4rem 0.6rem;color:#64748b;font-weight:600;border-bottom:1px solid #334155">Rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Evaluation History</td>
+          <td><strong style="color:#f8fafc">No upsert — each POST /screen appends a new row</strong></td>
+          <td style="color:#94a3b8">Full audit trail: ai_model, prompt_version, temperature, token counts, cost, reasoning — all preserved per run. If score changes between runs, you can see exactly why. No unique index on (candidateId, positionId).</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Deduplication in UI</td>
+          <td><strong style="color:#f8fafc">Query-level: GROUP BY candidateId, MAX(createdAt)</strong></td>
+          <td style="color:#94a3b8">GET /evaluations returns latest-per-candidate by default. Pass <code>?includeHistory=true</code> to see all rows for debugging / cost audit. Frontend never sees duplicates in normal flow.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Duplicate Candidates</td>
+          <td><strong style="color:#f8fafc">No auto-merge — each upload creates a separate Candidate record</strong></td>
+          <td style="color:#94a3b8">Same person may have multiple CV versions (localized, position-specific, updated). 409 Conflict by name/email is too aggressive. Score variance of ±5 pts between similar CVs is acceptable; large swings (95 vs 50) would indicate a prompt stability issue. <strong>TODO Future:</strong> duplicate detection warning — cosine similarity on <code>pgvector</code> text embeddings (threshold ~0.92) + email exact-match. Show "Possible duplicate" badge in UI, never block upload.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Sequential Evaluation</td>
+          <td><strong style="color:#f8fafc">One OpenAI call at a time — no Task.WhenAll</strong></td>
+          <td style="color:#94a3b8">DbContext is not thread-safe, OpenAI has rate limits, error handling is simpler. 10–30s per candidate is acceptable for 1–10 CVs in MVP. <strong>TODO Future:</strong> bounded parallel evaluation / background worker + progress polling for large batches.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Stale Evaluations</td>
+          <td><strong style="color:#f8fafc">No auto re-screen on position edit</strong></td>
+          <td style="color:#94a3b8">Editing a position sets <code>Position.UpdatedAt</code>. Evaluations with <code>createdAt &lt; updatedAt</code> are flagged <code>isStale=true</code> by the API. UI shows "Outdated" badge and banner. User manually triggers Re-screen. Old evaluations are never deleted — audit trail is preserved.</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
 </body>

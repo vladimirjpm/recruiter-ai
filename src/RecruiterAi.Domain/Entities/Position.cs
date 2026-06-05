@@ -20,6 +20,9 @@ public class Position
 
     public DateTimeOffset CreatedAt { get; set; }
 
+    // Null until first edit — evaluations are stale when CreatedAt < UpdatedAt.
+    public DateTimeOffset? UpdatedAt { get; set; }
+
     public ICollection<Evaluation> Evaluations { get; set; } = [];
     public ICollection<CvGenerationBatch> GenerationBatches { get; set; } = [];
 }

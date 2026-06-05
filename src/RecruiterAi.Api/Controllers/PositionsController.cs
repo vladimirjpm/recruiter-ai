@@ -19,7 +19,7 @@ public class PositionsController(AppDbContext db, ILogger<PositionsController> l
     {
         var positions = await db.Positions
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => new PositionSummaryDto(p.Id, p.Title, p.Country, p.SeniorityLevel, p.CreatedAt))
+            .Select(p => new PositionSummaryDto(p.Id, p.Title, p.Country, p.SeniorityLevel, p.CreatedAt, p.UpdatedAt))
             .ToListAsync(ct);
 
         return Ok(positions);
@@ -66,12 +66,13 @@ public class PositionsController(AppDbContext db, ILogger<PositionsController> l
         var position = await db.Positions.FindAsync([id], ct);
         if (position is null) return NotFound();
 
-        position.Title           = dto.Title;
-        position.Description     = dto.Description;
-        position.Country         = dto.Country;
-        position.SeniorityLevel  = dto.SeniorityLevel;
-        position.RequiredSkills  = dto.RequiredSkills;
+        position.Title            = dto.Title;
+        position.Description      = dto.Description;
+        position.Country          = dto.Country;
+        position.SeniorityLevel   = dto.SeniorityLevel;
+        position.RequiredSkills   = dto.RequiredSkills;
         position.NiceToHaveSkills = dto.NiceToHaveSkills;
+        position.UpdatedAt        = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
 
@@ -99,7 +100,7 @@ public class PositionsController(AppDbContext db, ILogger<PositionsController> l
 
     private static PositionDto ToDto(Position p) => new(
         p.Id, p.Title, p.Description, p.Country, p.SeniorityLevel,
-        p.RequiredSkills, p.NiceToHaveSkills, p.CreatedAt);
+        p.RequiredSkills, p.NiceToHaveSkills, p.CreatedAt, p.UpdatedAt);
 }
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
@@ -120,11 +121,13 @@ public record PositionDto(
     string? SeniorityLevel,
     List<string> RequiredSkills,
     List<string> NiceToHaveSkills,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
 
 public record PositionSummaryDto(
     Guid Id,
     string Title,
     string? Country,
     string? SeniorityLevel,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
