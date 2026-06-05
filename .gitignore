@@ -8,3 +8,5 @@ obj/
 node_modules/
 dist/
 interview-talking-points.md
+src/RecruiterAi.Api/appsettings.Development.json
+src/RecruiterAi.Api/uploads/
