@@ -357,6 +357,9 @@ public class EvaluationsWebAppFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:Postgres",
             "Host=localhost;Database=test_placeholder");
         builder.UseSetting("Storage:UploadsPath", _tempUploads);
+        // High permit count so the shared "unknown" IP partition
+        // does not exhaust the rate limit across all tests in the class.
+        builder.UseSetting("RateLimit:OpenAiCostPermits", "1000");
 
         var dbName = $"TestDb-Evaluations-{Guid.NewGuid()}";
 
@@ -378,6 +381,7 @@ public class EvaluationsWebAppFactory : WebApplicationFactory<Program>
 
             Replace<ICvParserService, StubCvParser>(services);
             Replace<IResumeEvaluationService, StubResumeEvaluationService>(services);
+
         });
     }
 

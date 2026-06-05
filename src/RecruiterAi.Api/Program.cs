@@ -75,7 +75,8 @@ builder.Services.AddRateLimiter(opt =>
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                // Override via RateLimit:OpenAiCostPermits for integration tests.
+                PermitLimit = int.TryParse(builder.Configuration["RateLimit:OpenAiCostPermits"], out var n) ? n : 10,
                 Window      = TimeSpan.FromMinutes(1),
                 QueueLimit  = 0,
             }));
@@ -119,7 +120,10 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    // Guard required for integration tests that use the EF in-memory provider,
+    // which does not support Migrate() — only relational providers do.
+    if (db.Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory")
+        db.Database.Migrate();
 }
 
 app.UseExceptionHandler();

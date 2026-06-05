@@ -198,5 +198,6 @@ public class CandidatesWebAppFactory : WebApplicationFactory<Program>
 internal sealed class StubCvParser : ICvParserService
 {
     public Task<string> ParseAsync(Stream pdfStream, CancellationToken ct = default)
-        => Task.FromResult("Sample candidate resume text extracted from PDF.");
+        // Must exceed MinExtractedTextLength (100 chars) in CandidatesController.
+        => Task.FromResult("Sample candidate resume text extracted from PDF. John Doe, Software Engineer with 5 years of experience in C# and .NET development.");
 }
