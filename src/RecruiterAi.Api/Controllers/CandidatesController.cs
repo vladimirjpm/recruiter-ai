@@ -37,6 +37,43 @@ public class CandidatesController(
         return Ok(candidates);
     }
 
+    // .NET: [HttpGet("{id:guid}/file")] — streams the original PDF from local storage.
+    // Path traversal is prevented by resolving against the upload root and verifying
+    // the result still starts with that root (same pattern as Delete).
+    [HttpGet("{id:guid}/file")]
+    public async Task<IActionResult> DownloadFile(Guid id, CancellationToken ct)
+    {
+        var candidate = await db.Candidates.FindAsync([id], ct);
+        if (candidate is null) return NotFound(new { error = "Candidate not found." });
+
+        if (candidate.StoragePath is null)
+            return NotFound(new { error = "No file associated with this candidate." });
+
+        var uploadRoot   = Path.GetFullPath(GetUploadRoot());
+        var absolutePath = Path.GetFullPath(Path.Combine(uploadRoot, candidate.StoragePath));
+
+        // Prevent path traversal: resolved path must stay inside the upload root.
+        if (!absolutePath.StartsWith(uploadRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            && !absolutePath.Equals(uploadRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(
+                "Path traversal attempt blocked. CandidateId={Id} StoragePath={Path}",
+                id, candidate.StoragePath);
+            return BadRequest(new { error = "Invalid file path." });
+        }
+
+        if (!System.IO.File.Exists(absolutePath))
+        {
+            logger.LogWarning(
+                "CV file not found on disk. CandidateId={Id} Path={Path}", id, absolutePath);
+            return NotFound(new { error = "File not found on disk." });
+        }
+
+        var stream = System.IO.File.OpenRead(absolutePath);
+        // Omit fileDownloadName so browser gets Content-Disposition: inline and opens the PDF in a new tab.
+        return File(stream, "application/pdf", enableRangeProcessing: true);
+    }
+
     // .NET: [HttpDelete("{id:guid}")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
