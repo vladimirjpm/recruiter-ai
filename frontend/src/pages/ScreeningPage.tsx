@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { getPositions, getPosition } from '../api/positions';
-import { getCandidates, uploadCandidates, getCandidateFileUrl } from '../api/candidates';
+import { getCandidates, uploadCandidates, getCandidateFileUrl, deleteCandidate } from '../api/candidates';
 import { getEvaluations, screenCandidates, getEvaluationsCsvUrl } from '../api/evaluations';
 import { formatCandidateName } from '../utils/formatName';
 import { DropZone } from '../components/DropZone';
@@ -18,6 +18,7 @@ export function ScreeningPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [activeEval, setActiveEval] = useState<Evaluation | null>(null);
+  const [sortByScore, setSortByScore] = useState(false);
 
   const { data: positions = [] } = useQuery({ queryKey: ['positions'], queryFn: getPositions });
   const { data: selectedPosition } = useQuery({
@@ -49,6 +50,16 @@ export function ScreeningPage() {
         'Upload failed';
       toast.error(msg);
     },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteCandidate,
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: ['candidates'] });
+      setSelected(prev => { const next = new Set(prev); next.delete(id); return next; });
+      toast.success('Candidate removed');
+    },
+    onError: () => toast.error('Delete failed'),
   });
 
   const screenMutation = useMutation({
@@ -119,6 +130,11 @@ export function ScreeningPage() {
     [candidates]
   );
 
+  const sortedEvaluations = useMemo(
+    () => sortByScore ? [...evaluations].sort((a, b) => b.score - a.score) : evaluations,
+    [evaluations, sortByScore]
+  );
+
   const staleEvaluations = evaluations.filter(e => e.isStale);
   const hasStale = staleEvaluations.length > 0;
 
@@ -186,6 +202,7 @@ export function ScreeningPage() {
                   <th className="px-3 py-2 text-left text-gray-400 font-medium">File</th>
                   <th className="px-3 py-2 text-left text-gray-400 font-medium">Source</th>
                   <th className="px-3 py-2 text-left text-gray-400 font-medium">Added</th>
+                  <th className="w-8 px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
@@ -246,6 +263,16 @@ export function ScreeningPage() {
                     <td className="px-3 py-2.5 text-gray-400">
                       {new Date(c.uploadedAt).toLocaleDateString()}
                     </td>
+                    <td className="px-3 py-2.5">
+                      <button
+                        onClick={e => { e.stopPropagation(); deleteMutation.mutate(c.id); }}
+                        disabled={deleteMutation.isPending}
+                        className="text-gray-600 hover:text-red-400 transition-colors text-lg leading-none"
+                        title="Remove candidate"
+                      >
+                        ×
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -286,6 +313,14 @@ export function ScreeningPage() {
                 : evaluations.length > 0 && <span className="text-gray-500 font-normal">({evaluations.length})</span>}
             </h2>
             <div className="flex items-center gap-2">
+              {evaluations.length > 0 && (
+                <button
+                  onClick={() => setSortByScore(s => !s)}
+                  className={`btn-secondary text-xs py-1.5 ${sortByScore ? 'border-blue-500 text-blue-400' : ''}`}
+                >
+                  {sortByScore ? '↓ Score' : 'Sort by score'}
+                </button>
+              )}
               {hasStale && (
                 <button onClick={rescreenStale} className="btn-secondary text-xs py-1.5 border-amber-600 text-amber-400 hover:bg-amber-900/20">
                   ↺ Re-screen stale ({staleEvaluations.length})
@@ -325,7 +360,7 @@ export function ScreeningPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {evaluations.map((e, idx) => (
+                  {sortedEvaluations.map((e, idx) => (
                     <tr
                       key={e.id}
                       onClick={() => setActiveEval(e)}
