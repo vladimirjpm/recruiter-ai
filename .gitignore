@@ -3,10 +3,35 @@ obj/
 *.user
 .vs/
 .idea/
-.env
-.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# .NET secrets and environment-specific config
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.Local.json
+*.pfx
+*.p12
+secrets.json
+
+# Test output
+TestResults/
+coverage/
+
+# Frontend
 node_modules/
 dist/
-interview-talking-points.md
-src/RecruiterAi.Api/appsettings.Development.json
+.env
+.env.local
+.env.*.local
+
+# Claude Code session data
+.claude/
+
+# Uploaded files
 src/RecruiterAi.Api/uploads/
+
+interview-talking-points.md
