@@ -40,6 +40,9 @@ public static class DependencyInjection
 
         // OpenAI options bound from "OpenAI" section; key validation is deferred to
         // service construction so tests can replace the implementation with a stub.
+        // TODO Future: add an IHostedService startup check that validates Llm:ApiKey is set
+        // and optionally pings the OpenAI API — surfaces misconfiguration at boot, not on
+        // the first user request.
         services.Configure<LlmOptions>(opt =>
         {
             opt.Provider       = configuration["Llm:Provider"]       ?? "OpenAI";

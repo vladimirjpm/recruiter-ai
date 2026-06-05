@@ -25,6 +25,13 @@ public class GeneratorController(
         var position = await db.Positions.FindAsync([positionId], ct);
         if (position is null) return NotFound();
 
+        // Current scope: Generate → Persist → Evaluate (candidates enter the shared pool
+        // and can be screened by the recruiter via POST /api/positions/{id}/screen).
+        //
+        // TODO Future — Validation Lab may support:
+        //   - Download-only mode (generate without persistence)
+        //   - Export generated CVs as TXT / PDF / ZIP
+        //   - Save-to-database toggle in UI (persist: bool flag on this endpoint)
         var result = await generationService.GenerateAsync(position, dto.Count, ct);
 
         db.CvGenerationBatches.Add(result.Batch);

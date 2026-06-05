@@ -58,6 +58,9 @@ public class EvaluationsController(
                 });
             }
 
+            // TODO Future: define re-evaluation behavior — currently creates a new Evaluation every
+            // time the same candidate is screened for the same position. Options: keep all history
+            // (current), replace the latest, or reject with 409 Conflict if one already exists.
             db.Evaluations.Add(evaluation);
             await db.SaveChangesAsync(ct);
 

@@ -182,6 +182,8 @@ public class CandidatesController(
                 try
                 {
                     rawText = await cvParser.ParseAsync(ms, ct);
+                    // TODO Future: warn or reject when extracted text is too short (e.g. < 100 chars) —
+                    // likely a scanned image-only PDF that PdfPig cannot read.
                     logger.LogInformation(LogEvents.PdfParseSuccess,
                         "PDF parsed successfully. CandidateId={Id} FileFingerprint={Fp}",
                         candidateId, PiiSafe.Fingerprint(file.FileName));
@@ -206,6 +208,8 @@ public class CandidatesController(
                 await using (var dest = System.IO.File.Create(absolutePath))
                     await ms.CopyToAsync(dest, ct);
 
+                // TODO Future: extract candidate name from CV text (contact block / first heading);
+                // filename is the fallback for when extraction fails or is not yet implemented.
                 var candidate = new Candidate
                 {
                     Id          = candidateId,
@@ -218,7 +222,12 @@ public class CandidatesController(
                     UploadedAt  = DateTimeOffset.UtcNow,
                 };
 
+                // TODO Future: duplicate detection warning by normalized email (most reliable)
+                // + file hash (exact binary match) or raw_text fingerprint (SHA256 of normalized
+                // text — catches renamed files). Name-based matching is unreliable (common surnames).
                 db.Candidates.Add(candidate);
+                // TODO Future: cleanup saved file on disk if SaveChangesAsync fails (currently the
+                // file is persisted but the DB record is not, leaving an orphaned file).
                 await db.SaveChangesAsync(ct);
 
                 results.Add(new CandidateUploadResultDto(candidate.Id, candidate.FileName));
