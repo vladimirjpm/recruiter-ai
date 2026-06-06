@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.InMemory.Infrastructure.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using RecruiterAi.Api;
+using RecruiterAi.Domain.Interfaces;
 using RecruiterAi.Infrastructure.Persistence;
 
 namespace RecruiterAi.Tests.Integration;
@@ -232,6 +233,29 @@ public class PositionsWebAppFactory : WebApplicationFactory<Program>
             services.AddDbContext<AppDbContext>(opt =>
                 opt.UseInternalServiceProvider(efServiceProvider)
                    .UseInMemoryDatabase(dbName));
+
+            // PositionsController depends on IJobDescriptionExtractorService.
+            // The real implementation throws at construction when ApiKey is empty,
+            // so we replace it with a stub — CRUD tests never call /extract.
+            Replace<IJobDescriptionExtractorService, StubJobDescriptionExtractorService>(services);
         });
     }
+
+    private static void Replace<TService, TImpl>(IServiceCollection services)
+        where TImpl : class, TService
+        where TService : class
+    {
+        var existing = services.FirstOrDefault(d => d.ServiceType == typeof(TService));
+        if (existing is not null) services.Remove(existing);
+        services.AddSingleton<TService, TImpl>();
+    }
+}
+
+// Stub that satisfies DI — positions CRUD tests never call /extract.
+internal sealed class StubJobDescriptionExtractorService : IJobDescriptionExtractorService
+{
+    public Task<JobDescriptionExtractionResult> ExtractAsync(
+        string jobDescriptionText,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("ExtractAsync should not be called in positions CRUD tests.");
 }
