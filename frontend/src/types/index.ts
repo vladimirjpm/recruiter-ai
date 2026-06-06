@@ -5,6 +5,8 @@ export interface PositionSummary {
   seniorityLevel: string | null;
   createdAt: string;
   updatedAt: string | null;
+  candidatesCount: number;
+  screenedCount: number;
 }
 
 export interface Position {

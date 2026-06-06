@@ -42,6 +42,11 @@ export const getCandidatesForPosition = (positionId: string) =>
 export const attachCandidate = (positionId: string, candidateId: string) =>
   apiClient.post(`/positions/${positionId}/candidates/${candidateId}`).then(r => r.data);
 
+// Removes the junction row only; candidate stays in the global pool.
+// Different from deleteCandidate which removes the candidate entirely.
+export const detachCandidate = (positionId: string, candidateId: string) =>
+  apiClient.delete(`/positions/${positionId}/candidates/${candidateId}`);
+
 export const deleteCandidate = (id: string) =>
   apiClient.delete(`/candidates/${id}`);
 

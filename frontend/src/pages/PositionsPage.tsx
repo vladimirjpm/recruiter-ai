@@ -174,6 +174,11 @@ function PositionCard({
         </button>
       </div>
 
+      <PositionStats
+        candidatesCount={position.candidatesCount}
+        screenedCount={position.screenedCount}
+      />
+
       <div className="flex items-center gap-2 mt-1">
         <button onClick={onOpenCandidates} className="btn-secondary text-xs py-1.5">
           Candidates →
@@ -185,6 +190,54 @@ function PositionCard({
           Edit
         </button>
       </div>
+    </div>
+  );
+}
+
+// State-aware status line — turns the bare counters into an actionable signal.
+// Empty       → muted "Add candidates" hint.
+// Ready       → amber "Ready to screen" badge when nothing has been screened yet.
+// Partial     → neutral count, no badge.
+// Complete    → green check when every candidate has been screened.
+function PositionStats({
+  candidatesCount, screenedCount,
+}: { candidatesCount: number; screenedCount: number }) {
+  if (candidatesCount === 0) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+        <span className="opacity-70">No candidates yet</span>
+        <span className="text-gray-700">·</span>
+        <span className="text-blue-400">Add candidates →</span>
+      </div>
+    );
+  }
+
+  const allDone = screenedCount >= candidatesCount;
+  const noneDone = screenedCount === 0;
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-gray-300">
+        <span className="font-semibold text-gray-100">{candidatesCount}</span>{' '}
+        candidate{candidatesCount !== 1 ? 's' : ''}
+      </span>
+      <span className="text-gray-700">·</span>
+      <span className={allDone ? 'text-green-400' : 'text-gray-300'}>
+        <span className={`font-semibold ${allDone ? 'text-green-300' : 'text-gray-100'}`}>
+          {screenedCount}
+        </span>{' '}
+        screened
+      </span>
+      {allDone && (
+        <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 text-green-300 border border-green-700/30">
+          ✓ Complete
+        </span>
+      )}
+      {noneDone && (
+        <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-300 border border-amber-700/30">
+          Ready to screen
+        </span>
+      )}
     </div>
   );
 }

@@ -47,12 +47,28 @@ public class PositionsController(
     }
 
     // .NET: [HttpGet]
+    // Includes per-position counts so the Positions list can show workload at a glance
+    // without N round-trips. Both counts are computed in a single SQL through subqueries.
+    //   CandidatesCount — junction rows for this position.
+    //   ScreenedCount   — distinct candidates that have at least one evaluation here.
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
     {
         var positions = await db.Positions
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => new PositionSummaryDto(p.Id, p.Title, p.Country, p.SeniorityLevel, p.CreatedAt, p.UpdatedAt))
+            .Select(p => new PositionSummaryDto(
+                p.Id,
+                p.Title,
+                p.Country,
+                p.SeniorityLevel,
+                p.CreatedAt,
+                p.UpdatedAt,
+                db.PositionCandidates.Count(pc => pc.PositionId == p.Id),
+                db.Evaluations
+                    .Where(e => e.PositionId == p.Id)
+                    .Select(e => e.CandidateId)
+                    .Distinct()
+                    .Count()))
             .ToListAsync(ct);
 
         return Ok(positions);
@@ -223,6 +239,26 @@ public class PositionsController(
             link.SourceContext.ToString(), link.CreatedAt));
     }
 
+    // .NET: [HttpDelete("{id:guid}/candidates/{candidateId:guid}")]
+    // Detach a candidate from a position by removing the junction row only.
+    // The Candidate itself stays in the global pool — different from
+    // DELETE /api/candidates/{id} which removes the candidate entirely.
+    // Idempotent: 204 whether the row existed or not — the postcondition is the same.
+    [HttpDelete("{id:guid}/candidates/{candidateId:guid}")]
+    public async Task<IActionResult> DetachCandidate(Guid id, Guid candidateId, CancellationToken ct)
+    {
+        var link = await db.PositionCandidates
+            .FirstOrDefaultAsync(pc => pc.PositionId == id && pc.CandidateId == candidateId, ct);
+
+        if (link is not null)
+        {
+            db.PositionCandidates.Remove(link);
+            await db.SaveChangesAsync(ct);
+        }
+
+        return NoContent();
+    }
+
     private static PositionDto ToDto(Position p) => new(
         p.Id, p.Title, p.Description, p.Country, p.SeniorityLevel,
         p.RequiredSkills, p.NiceToHaveSkills, p.CreatedAt, p.UpdatedAt);
@@ -273,7 +309,9 @@ public record PositionSummaryDto(
     string? Country,
     string? SeniorityLevel,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt);
+    DateTimeOffset? UpdatedAt,
+    int CandidatesCount,
+    int ScreenedCount);
 
 public record ExtractPositionDto(
     [Required, MinLength(100), MaxLength(20_000)] string JobDescriptionText);
