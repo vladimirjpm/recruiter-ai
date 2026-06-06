@@ -6,6 +6,7 @@ import { PositionsPage } from './pages/PositionsPage';
 import { CandidatesPage } from './pages/CandidatesPage';
 import { ScreeningPage } from './pages/ScreeningPage';
 import { GeneratorPage } from './pages/GeneratorPage';
+import { features } from './config/features';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,7 +27,11 @@ export function App() {
             <Route path="/positions" element={<PositionsPage />} />
             <Route path="/candidates" element={<CandidatesPage />} />
             <Route path="/screening" element={<ScreeningPage />} />
-            <Route path="/generator" element={<GeneratorPage />} />
+            {/* Generator is dev/QA tooling — route only exists when the feature flag is on. */}
+            <Route
+              path="/generator"
+              element={features.syntheticCvGenerator ? <GeneratorPage /> : <Navigate to="/positions" replace />}
+            />
             <Route path="*" element={<Navigate to="/positions" replace />} />
           </Route>
         </Routes>

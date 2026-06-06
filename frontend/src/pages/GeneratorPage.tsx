@@ -60,9 +60,16 @@ export function GeneratorPage() {
       <WorkflowHint current="candidates" />
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-100">Generator</h1>
-          <p className="text-sm text-gray-500 mt-1 truncate max-w-xl">
-            {position?.title ?? 'Generate synthetic CVs to validate screening quality'}
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-semibold text-gray-100">Synthetic CV Generator</h1>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 border border-amber-700/40 leading-none self-center">
+              dev tool
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mt-1 max-w-xl">
+            {position?.title
+              ? `Generating synthetic CVs for: ${position.title}`
+              : 'Not part of the recruiter workflow — used to test screening quality across fit levels and professions.'}
           </p>
         </div>
       </div>

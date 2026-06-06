@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { features } from '../config/features';
 
 // Inline SVGs (no icon package) — small, consistent stroke width, currentColor.
 const icons = {
@@ -27,12 +28,16 @@ const icons = {
   ),
 };
 
-const NAV = [
+const CORE_NAV = [
   { to: '/positions',  label: 'Positions',  hint: 'Create & edit positions',    icon: icons.positions  },
   { to: '/candidates', label: 'Candidates', hint: 'Upload & manage candidates', icon: icons.candidates },
   { to: '/screening',  label: 'Screening',  hint: 'Evaluate candidates',        icon: icons.screening  },
-  { to: '/generator',  label: 'Generator',  hint: 'Generate synthetic CVs',     icon: icons.generator  },
 ];
+
+// Generator is dev/QA tooling — hidden in production via feature flag.
+const DEV_NAV = features.syntheticCvGenerator
+  ? [{ to: '/generator', label: 'Generator', hint: 'Test screening quality', icon: icons.generator }]
+  : [];
 
 export function Layout() {
   return (
@@ -49,9 +54,22 @@ export function Layout() {
           </div>
         </div>
         <div className="flex flex-col gap-1 p-3 flex-1">
-          {NAV.map(n => (
+          {CORE_NAV.map(n => (
             <SidebarItem key={n.to} {...n} />
           ))}
+          {DEV_NAV.length > 0 && (
+            <>
+              <div className="mt-3 mb-1 px-3 flex items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-600">
+                  Dev tools
+                </span>
+                <div className="flex-1 h-px bg-gray-800" />
+              </div>
+              {DEV_NAV.map(n => (
+                <SidebarItem key={n.to} {...n} devTool />
+              ))}
+            </>
+          )}
         </div>
         <div className="px-4 py-3 border-t border-gray-800 text-[11px] text-gray-600">
           Portfolio demo · v0.1
@@ -79,8 +97,11 @@ export function Layout() {
         className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-gray-900 border-t border-gray-800 flex justify-around px-2 py-2"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}
       >
-        {NAV.map(n => (
+        {CORE_NAV.map(n => (
           <BottomNavItem key={n.to} to={n.to} label={n.label} icon={n.icon} />
+        ))}
+        {DEV_NAV.map(n => (
+          <BottomNavItem key={n.to} to={n.to} label={n.label} icon={n.icon} devTool />
         ))}
       </nav>
     </div>
@@ -88,25 +109,40 @@ export function Layout() {
 }
 
 function SidebarItem({
-  to, label, hint, icon,
-}: { to: string; label: string; hint: string; icon: ReactNode }) {
+  to, label, hint, icon, devTool = false,
+}: { to: string; label: string; hint: string; icon: ReactNode; devTool?: boolean }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
         `flex items-start gap-2.5 px-3 py-2 rounded-lg transition-colors ${
           isActive
-            ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/30'
-            : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
+            ? devTool
+              ? 'bg-amber-600/20 text-amber-200 shadow-sm'
+              : 'bg-blue-600 text-white shadow-sm shadow-blue-900/30'
+            : devTool
+              ? 'text-amber-500/70 hover:text-amber-300 hover:bg-amber-900/20'
+              : 'text-gray-400 hover:text-gray-100 hover:bg-gray-800'
         }`
       }
     >
       {({ isActive }) => (
         <>
           <span className="opacity-90 mt-0.5">{icon}</span>
-          <span className="flex flex-col leading-tight">
-            <span className={`text-sm ${isActive ? 'font-medium' : ''}`}>{label}</span>
-            <span className={`text-[11px] ${isActive ? 'text-blue-100/90' : 'text-gray-500'}`}>
+          <span className="flex flex-col leading-tight min-w-0">
+            <span className={`text-sm flex items-center gap-1.5 ${isActive ? 'font-medium' : ''}`}>
+              {label}
+              {devTool && (
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-amber-900/40 text-amber-400 border border-amber-700/40 leading-none">
+                  dev
+                </span>
+              )}
+            </span>
+            <span className={`text-[11px] ${
+              isActive
+                ? devTool ? 'text-amber-200/70' : 'text-blue-100/90'
+                : 'text-gray-500'
+            }`}>
               {hint}
             </span>
           </span>
@@ -116,13 +152,17 @@ function SidebarItem({
   );
 }
 
-function BottomNavItem({ to, label, icon }: { to: string; label: string; icon: ReactNode }) {
+function BottomNavItem({
+  to, label, icon, devTool = false,
+}: { to: string; label: string; icon: ReactNode; devTool?: boolean }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
         `flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-colors ${
-          isActive ? 'text-blue-400 bg-blue-600/15' : 'text-gray-500 hover:text-gray-200'
+          isActive
+            ? devTool ? 'text-amber-400 bg-amber-600/15' : 'text-blue-400 bg-blue-600/15'
+            : devTool ? 'text-amber-600/60 hover:text-amber-300' : 'text-gray-500 hover:text-gray-200'
         }`
       }
     >
