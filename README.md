@@ -6,8 +6,9 @@ AI-powered CV screening with GPT-4o mini. Phase 1 is an embedding-free MVP; the 
 
 - .NET 10 Web API · EF Core 10 · Npgsql
 - PostgreSQL 16 + pgvector (Phase 2)
-- React 18 + Vite + Tailwind (frontend — Stage 2/3)
+- React 18 + Vite + Tailwind CSS
 - OpenAI GPT-4o mini
+- Railway (API + PostgreSQL) · Vercel (UI)
 
 ## Structure
 
@@ -24,20 +25,70 @@ docker-compose.yml             # pgvector/pgvector:pg16 for local development
 ## Local setup
 
 ```powershell
-# 1. PostgreSQL
+# 1. Copy env file and set your OpenAI key
+cp .env.example .env
+# Edit .env — set LLM_API_KEY=sk-...
+
+# 2. PostgreSQL + API via Docker Compose
 docker compose up -d
 
-# 2. Apply migrations
+# — OR run without Docker —
+
+# 2a. PostgreSQL only
+docker compose up -d postgres
+
+# 2b. Apply migrations
 dotnet ef database update `
   --project src/RecruiterAi.Infrastructure `
   --startup-project src/RecruiterAi.Api
 
-# 3. API
+# 2c. API (reads Llm__ApiKey from environment or .env)
 dotnet run --project src/RecruiterAi.Api
 ```
 
 - Swagger: <http://localhost:5150/swagger>
-- Health: <http://localhost:5150/health>
+- Health:  <http://localhost:5150/health>
+
+### Frontend
+
+```powershell
+cd frontend
+npm install
+npm run dev   # http://localhost:5173 — /api proxied to :5150
+```
+
+`VITE_API_URL` is not set in dev — Vite proxies `/api` to `:5150` automatically.
+
+## Deployment
+
+### Railway (API + PostgreSQL)
+
+1. Create a new Railway project, add a **PostgreSQL** service (pgvector is included).
+2. Connect the GitHub repo — Railway picks up `railway.toml` and builds via `Dockerfile`.
+3. Set environment variables in Railway dashboard:
+
+| Variable | Value |
+|---|---|
+| `Llm__ApiKey` | `sk-...` |
+| `Llm__Model` | `gpt-4o-mini` |
+| `ConnectionStrings__Postgres` | Railway auto-injects via `${{Postgres.DATABASE_URL}}` — or set manually |
+| `Cors__AllowedOrigins__0` | `https://your-app.vercel.app` |
+| `ASPNETCORE_ENVIRONMENT` | `Production` |
+
+> **pgvector check:** before first deploy, verify `CREATE EXTENSION IF NOT EXISTS vector;` runs successfully on the Railway PostgreSQL instance. EF migrations run automatically on startup.
+
+### Vercel (Frontend)
+
+1. Import the GitHub repo in Vercel.
+2. Set **Root Directory** to `frontend`.
+3. Vercel picks up `frontend/vercel.json` — build command and SPA rewrites are pre-configured.
+4. Set environment variable:
+
+| Variable | Value |
+|---|---|
+| `VITE_API_URL` | `https://your-app.railway.app` |
+
+5. Add the Vercel deployment URL to Railway's `Cors__AllowedOrigins__0`.
 
 ## CI/CD (Phase 1)
 

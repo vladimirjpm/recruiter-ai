@@ -56,6 +56,7 @@ public static class DependencyInjection
         // reuses the underlying connection pool across requests.
         services.AddSingleton<IResumeEvaluationService, OpenAiResumeEvaluationService>();
         services.AddSingleton<ICvGenerationService, OpenAiCvGenerationService>();
+        services.AddSingleton<IJobDescriptionExtractorService, OpenAiJobDescriptionExtractorService>();
 
         return services;
     }

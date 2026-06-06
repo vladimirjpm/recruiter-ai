@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Position, PositionSummary, UpsertPositionPayload } from '../types';
+import type { Position, PositionSummary, UpsertPositionPayload, ExtractionResult } from '../types';
 
 export const getPositions = () =>
   apiClient.get<PositionSummary[]>('/positions').then(r => r.data);
@@ -12,3 +12,6 @@ export const createPosition = (payload: UpsertPositionPayload) =>
 
 export const updatePosition = (id: string, payload: UpsertPositionPayload) =>
   apiClient.put<Position>(`/positions/${id}`, payload).then(r => r.data);
+
+export const extractPosition = (jobDescriptionText: string) =>
+  apiClient.post<ExtractionResult>('/positions/extract', { jobDescriptionText }).then(r => r.data);

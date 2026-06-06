@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RecruiterAi.Api.Logging;
 using RecruiterAi.Domain.Entities;
+using RecruiterAi.Domain.Interfaces;
 using RecruiterAi.Infrastructure.Persistence;
 
 namespace RecruiterAi.Api.Controllers;
@@ -10,9 +11,40 @@ namespace RecruiterAi.Api.Controllers;
 // .NET: [ApiController] + [Route("api/positions")]
 [ApiController]
 [Route("api/positions")]
-public class PositionsController(AppDbContext db, ILogger<PositionsController> logger)
+public class PositionsController(
+    AppDbContext db,
+    ILogger<PositionsController> logger,
+    IJobDescriptionExtractorService extractor)
     : ControllerBase
 {
+    // .NET: [HttpPost("extract")]
+    [HttpPost("extract")]
+    public async Task<IActionResult> Extract([FromBody] ExtractPositionDto dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(dto.JobDescriptionText) || dto.JobDescriptionText.Length < 100)
+            return BadRequest(new { error = "Job description must be at least 100 characters." });
+
+        if (dto.JobDescriptionText.Length > 20_000)
+            return BadRequest(new { error = "Job description must not exceed 20 000 characters." });
+
+        JobDescriptionExtractionResult result;
+        try
+        {
+            result = await extractor.ExtractAsync(dto.JobDescriptionText, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(504, new { error = "Extraction timed out. Please try again." });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "JD extraction failed.");
+            return StatusCode(503, new { error = "AI extraction service is unavailable. Please try again." });
+        }
+
+        return Ok(ToExtractionDto(result));
+    }
+
     // .NET: [HttpGet]
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
@@ -101,6 +133,24 @@ public class PositionsController(AppDbContext db, ILogger<PositionsController> l
     private static PositionDto ToDto(Position p) => new(
         p.Id, p.Title, p.Description, p.Country, p.SeniorityLevel,
         p.RequiredSkills, p.NiceToHaveSkills, p.CreatedAt, p.UpdatedAt);
+
+    private static ExtractionResultDto ToExtractionDto(JobDescriptionExtractionResult r) => new(
+        r.Title,
+        r.Description,
+        r.Country,
+        r.SeniorityLevel,
+        r.RequiredSkills.Select(s => new ExtractedSkillDto(s.Name, s.Evidence)).ToList(),
+        r.NiceToHaveSkills.Select(s => new ExtractedSkillDto(s.Name, s.Evidence)).ToList(),
+        new ExtractionConfidenceDto(
+            r.Confidence.Country.ToString(),
+            r.Confidence.Seniority.ToString(),
+            r.Confidence.Skills.ToString()),
+        r.MissingInformation,
+        new ExtractionMetadataDto(
+            r.Metadata.Model,
+            r.Metadata.PromptVersion,
+            r.Metadata.ExtractedAt,
+            r.Metadata.InputCharCount));
 }
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
@@ -131,3 +181,30 @@ public record PositionSummaryDto(
     string? SeniorityLevel,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);
+
+public record ExtractPositionDto(
+    [Required, MinLength(100), MaxLength(20_000)] string JobDescriptionText);
+
+public record ExtractedSkillDto(string Name, string Evidence);
+
+public record ExtractionConfidenceDto(
+    string Country,
+    string Seniority,
+    string Skills);
+
+public record ExtractionMetadataDto(
+    string Model,
+    string PromptVersion,
+    DateTimeOffset ExtractedAt,
+    int InputCharCount);
+
+public record ExtractionResultDto(
+    string Title,
+    string Description,
+    string? Country,
+    string? SeniorityLevel,
+    List<ExtractedSkillDto> RequiredSkills,
+    List<ExtractedSkillDto> NiceToHaveSkills,
+    ExtractionConfidenceDto Confidence,
+    List<string> MissingInformation,
+    ExtractionMetadataDto Metadata);

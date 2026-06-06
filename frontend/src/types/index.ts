@@ -66,6 +66,42 @@ export interface Evaluation {
   isStale: boolean;
 }
 
+export type ConfidenceLevel = 'High' | 'Low' | 'NotDetected';
+
+export type MissingInfoField =
+  | 'Country'
+  | 'Seniority'
+  | 'Salary'
+  | 'WorkingArrangement'
+  | 'ContractType'
+  | 'TeamSize';
+
+export interface ExtractedSkill {
+  name: string;
+  evidence: string;
+}
+
+export interface ExtractionResult {
+  title: string;
+  description: string;
+  country: string | null;
+  seniorityLevel: string | null;
+  requiredSkills: ExtractedSkill[];
+  niceToHaveSkills: ExtractedSkill[];
+  confidence: {
+    country: ConfidenceLevel;
+    seniority: ConfidenceLevel;
+    skills: ConfidenceLevel;
+  };
+  missingInformation: MissingInfoField[];
+  metadata: {
+    model: string;
+    promptVersion: string;
+    extractedAt: string;
+    inputCharCount: number;
+  };
+}
+
 export interface GeneratedCandidate {
   id: string;
   name: string;

@@ -6,10 +6,11 @@ import { formatCandidateName } from '../utils/formatName';
 interface Props {
   evaluation: Evaluation | null;
   candidateFileUrl?: string;
+  onViewResume?: () => void;
   onClose: () => void;
 }
 
-export function DetailDrawer({ evaluation, candidateFileUrl, onClose }: Props) {
+export function DetailDrawer({ evaluation, candidateFileUrl, onViewResume, onClose }: Props) {
   if (!evaluation) return null;
 
   return (
@@ -29,6 +30,14 @@ export function DetailDrawer({ evaluation, candidateFileUrl, onClose }: Props) {
               >
                 {evaluation.candidateFileName}
               </a>
+            ) : onViewResume ? (
+              <button
+                type="button"
+                onClick={onViewResume}
+                className="text-sm text-purple-400 hover:text-purple-300 hover:underline transition-colors mt-0.5 text-left"
+              >
+                View generated CV
+              </button>
             ) : (
               <p className="text-sm text-gray-400 mt-0.5">{evaluation.candidateFileName}</p>
             )}
@@ -44,6 +53,15 @@ export function DetailDrawer({ evaluation, candidateFileUrl, onClose }: Props) {
             </button>
           </div>
         </div>
+
+        {/* TODO: Recruiter override panel
+            - Text field: recruiter comment (free-form note, stored per evaluation)
+            - Score adjustment: numeric input (+/- delta), final score = clamp(ai_score + delta, 0, 100)
+            - Display both AI score and adjusted score separately so the original is preserved
+            - Backend: add RecruiterComment (string?) + ScoreAdjustment (int, default 0) to Evaluation entity
+            - API: PATCH /api/evaluations/{id}/review  { comment, scoreAdjustment }
+            - UI: show adjusted score in ScoreBadge if adjustment != 0, with tooltip "AI: X | Adjusted: Y"
+        */}
 
         {evaluation.isStale && (
           <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-900/20 border border-amber-700/40 text-amber-300 text-xs">

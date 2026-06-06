@@ -9,6 +9,7 @@ import { DropZone } from '../components/DropZone';
 import { ScoreBadge } from '../components/ScoreBadge';
 import { DetailDrawer } from '../components/DetailDrawer';
 import { CreatePositionModal } from '../components/CreatePositionModal';
+import { ResumeTextModal } from '../components/ResumeTextModal';
 import type { Evaluation, Position } from '../types';
 
 export function ScreeningPage() {
@@ -18,6 +19,7 @@ export function ScreeningPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [activeEval, setActiveEval] = useState<Evaluation | null>(null);
+  const [resumeModal, setResumeModal] = useState<{ id: string; name: string } | null>(null);
   const [sortByScore, setSortByScore] = useState(false);
 
   const { data: positions = [] } = useQuery({ queryKey: ['positions'], queryFn: getPositions });
@@ -246,7 +248,17 @@ export function ScreeningPage() {
                           {c.fileName}
                         </a>
                       ) : (
-                        <span className="text-gray-500">{c.fileName}</span>
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setResumeModal({ id: c.id, name: candidateDisplayNames.get(c.id) ?? formatCandidateName(c.name) });
+                          }}
+                          className="text-purple-400 hover:text-purple-300 hover:underline transition-colors text-left truncate max-w-full"
+                          title="View generated CV"
+                        >
+                          View generated CV
+                        </button>
                       )}
                     </td>
                     <td className="px-3 py-2.5">
@@ -370,7 +382,7 @@ export function ScreeningPage() {
                       <td className="px-3 py-2.5 text-gray-100 font-medium">
                         <span className="flex items-center gap-2">
                           {candidateDisplayNames.get(e.candidateId) ?? formatCandidateName(e.candidateName)}
-                          {candidatesById.get(e.candidateId)?.source === 'Uploaded' && (
+                          {candidatesById.get(e.candidateId)?.source === 'Uploaded' ? (
                             <a
                               href={getCandidateFileUrl(e.candidateId)}
                               target="_blank"
@@ -383,6 +395,24 @@ export function ScreeningPage() {
                                 <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                               </svg>
                             </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={ev => {
+                                ev.stopPropagation();
+                                setResumeModal({
+                                  id: e.candidateId,
+                                  name: candidateDisplayNames.get(e.candidateId) ?? formatCandidateName(e.candidateName),
+                                });
+                              }}
+                              className="text-gray-500 hover:text-purple-400 transition-colors shrink-0"
+                              title="View generated CV"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                              </svg>
+                            </button>
                           )}
                           {e.isStale && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400 border border-amber-700/40 shrink-0">
@@ -424,6 +454,14 @@ export function ScreeningPage() {
             ? getCandidateFileUrl(activeEval.candidateId)
             : undefined
         }
+        onViewResume={
+          activeEval && candidatesById.get(activeEval.candidateId)?.source === 'Generated'
+            ? () => setResumeModal({
+                id: activeEval.candidateId,
+                name: candidateDisplayNames.get(activeEval.candidateId) ?? formatCandidateName(activeEval.candidateName),
+              })
+            : undefined
+        }
         onClose={() => setActiveEval(null)}
       />
 
@@ -446,6 +484,14 @@ export function ScreeningPage() {
             qc.invalidateQueries({ queryKey: ['position', positionId] });
             qc.invalidateQueries({ queryKey: ['evaluations', positionId] });
           }}
+        />
+      )}
+
+      {resumeModal && (
+        <ResumeTextModal
+          candidateId={resumeModal.id}
+          candidateName={resumeModal.name}
+          onClose={() => setResumeModal(null)}
         />
       )}
     </div>

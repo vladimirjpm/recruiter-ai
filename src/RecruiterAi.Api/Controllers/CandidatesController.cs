@@ -93,6 +93,27 @@ public class CandidatesController(
         return File(stream, "application/pdf", enableRangeProcessing: true);
     }
 
+    // Returns the raw CV text for generated candidates.
+    // rawText is intentionally excluded from list endpoints and never logged.
+    // .NET: [HttpGet("{id:guid}/resume-text")]
+    [HttpGet("{id:guid}/resume-text")]
+    public async Task<IActionResult> GetResumeText(Guid id, CancellationToken ct)
+    {
+        var candidate = await db.Candidates
+            .Where(c => c.Id == id)
+            .Select(c => new { c.Source, c.RawText })
+            .FirstOrDefaultAsync(ct);
+
+        if (candidate is null)
+            return NotFound(new { error = "Candidate not found." });
+
+        if (candidate.Source != CandidateSource.Generated)
+            return BadRequest(new { error = "resume-text is only available for generated candidates." });
+
+        // rawText is not logged — contains PII (synthetic but resembles real data).
+        return Ok(new { text = candidate.RawText });
+    }
+
     // .NET: [HttpDelete("{id:guid}")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)

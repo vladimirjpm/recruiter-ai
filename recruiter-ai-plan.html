@@ -581,6 +581,11 @@
           <div class="task key" style="color:#4ade80">✓ React Query (cache + invalidation across pages) + axios client (<code style="color:#4ade80">VITE_API_URL</code> for prod)</div>
           <div class="task key" style="color:#4ade80">✓ CreatePositionModal — inline position creation from both pages</div>
           <div class="task key" style="color:#4ade80">✓ <code style="color:#4ade80">tsc -b</code> clean · <code style="color:#4ade80">vite build</code> 283 KB / 92.5 KB gzip · verified via Claude_Preview (sidebar nav, dropdown, row select, slider, evaluations card)</div>
+          <div class="task key" style="color:#4ade80">✓ Paste JD tab — POST /api/positions/extract, AI pre-fills form, skill tags with evidence tooltip on hover</div>
+          <div class="task key" style="color:#4ade80">✓ Confidence highlights — yellow border on Low/NotDetected fields (country, seniority, skills), missing-info banner</div>
+          <div class="task key" style="color:#4ade80">✓ AI Extraction details — collapsed metadata block (model, promptVersion, extractedAt, inputCharCount)</div>
+          <div class="task key" style="color:#4ade80">✓ Generated CV viewer — GET /api/candidates/{id}/resume-text, modal with pre-formatted text (rawText never in list endpoints or logs)</div>
+          <div class="task key" style="color:#4ade80">✓ File links — Uploaded: PDF opens in new tab · Generated: "View generated CV" button → modal</div>
         </div>
       </div>
     </div>
@@ -591,13 +596,15 @@
         <h3>Deployment</h3>
         <p>Railway for .NET API + PostgreSQL with pgvector, Vercel for React UI</p>
         <div class="stage-tasks">
-          <div class="task key">Dockerfile for .NET 10 API</div>
-          <div class="task key">Railway: create project, add PostgreSQL, deploy API from GitHub</div>
-          <div class="task key">Verify pgvector availability on Railway PG before deploy — <code style="color:#fbbf24">CREATE EXTENSION vector</code> must succeed. README note: <em>"Requires PostgreSQL with pgvector extension support."</em></div>
-          <div class="task key">EF Core migrations: manual step or startup-on-demo. Production would use a controlled migration step (CI pipeline or separate job), not auto-migrate on app start</div>
-          <div class="task key">Vercel: deploy from /frontend, set VITE_API_URL env var</div>
-          <div class="task">CORS: allow Vercel domain in API settings</div>
-          <div class="task">README: local setup, ENV variables, deploy instructions</div>
+          <div class="task key" style="color:#4ade80">✓ Dockerfile — multi-stage SDK→runtime, uploads volume, ASPNETCORE_URLS=http://+:8080</div>
+          <div class="task key" style="color:#4ade80">✓ railway.toml — builder=dockerfile, healthcheckPath=/health, restart policy</div>
+          <div class="task key" style="color:#4ade80">✓ frontend/vercel.json — vite framework, SPA rewrites (/* → /index.html)</div>
+          <div class="task key" style="color:#4ade80">✓ .env.example — corrected to Llm__ApiKey / Llm__Model (matches DI config), CORS placeholder</div>
+          <div class="task key" style="color:#4ade80">✓ README — frontend setup, Railway env vars table, Vercel deploy steps, pgvector check note</div>
+          <div class="task key" style="color:#4ade80">✓ EF migrations run automatically on startup (guarded: skipped for InMemory provider in tests)</div>
+          <div class="task key">Railway: create project, add PostgreSQL service, connect GitHub repo, set env vars (Llm__ApiKey, Cors__AllowedOrigins__0)</div>
+          <div class="task key">Vercel: import repo, set Root Directory = <code style="color:#fbbf24">frontend</code>, set VITE_API_URL = Railway URL</div>
+          <div class="task">Verify pgvector on Railway PG — <code style="color:#fbbf24">CREATE EXTENSION IF NOT EXISTS vector</code> must succeed before first deploy</div>
         </div>
       </div>
     </div>
@@ -906,6 +913,31 @@
           <td style="padding:0.35rem 0.6rem;color:#94a3b8">Stale Evaluations</td>
           <td><strong style="color:#f8fafc">No auto re-screen on position edit</strong></td>
           <td style="color:#94a3b8">Editing a position sets <code>Position.UpdatedAt</code>. Evaluations with <code>createdAt &lt; updatedAt</code> are flagged <code>isStale=true</code> by the API. UI shows "Outdated" badge and banner. User manually triggers Re-screen. Old evaluations are never deleted — audit trail is preserved.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">JD Extraction — LLM Strategy</td>
+          <td><strong style="color:#f8fafc">Structured JSON Output, not Tool Calling</strong></td>
+          <td style="color:#94a3b8">Single LLM call with <code>response_format: json_schema + strict: true</code>. Tool Calling solves a different problem (external side-effects in LLM layer) — not applicable here. Two-endpoint pattern: <code>POST /positions/extract</code> returns preview (not saved) → user reviews → <code>POST /positions</code> saves. Human-in-the-loop is intentional: prevents hallucinated data from reaching the DB silently.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">JD Extraction — Skill Schema</td>
+          <td><strong style="color:#f8fafc">Skills as objects <code>{ name, evidence }</code>, not plain strings</strong></td>
+          <td style="color:#94a3b8"><code>evidence</code> is a verbatim quote from the JD that justifies the skill. Enables explainability (highlight source text in UI) and makes hallucinations visible — if evidence doesn't match the input text, extraction is wrong. Float confidence per skill was rejected: LLM cannot reliably compute 0.35 vs 0.61, it invents the number.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">JD Extraction — Confidence Model</td>
+          <td><strong style="color:#f8fafc">Per-field enum confidence: High / Low / NotDetected</strong></td>
+          <td style="color:#94a3b8">Float confidence (0.0–1.0) per field was rejected — LLM fabricates values without a real probability model. Enum is deterministic and prompt-controllable: <em>High</em> = explicitly stated, <em>Low</em> = inferred indirectly, <em>NotDetected</em> = absent. UI uses this to highlight fields requiring human review.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">JD Extraction — Missing Information</td>
+          <td><strong style="color:#f8fafc">Response includes <code>missingInformation[]</code> gap analysis</strong></td>
+          <td style="color:#94a3b8">LLM returns a list of fields absent from the JD text (Country, Salary, WorkingArrangement, ContractType, TeamSize — fixed enum, not free text). Turns extraction into a recruiter-facing gap analysis: "what this JD doesn't tell candidates." Consistent with Evaluation's explainability pattern.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">JD Extraction — Auditability</td>
+          <td><strong style="color:#f8fafc">Extraction response includes <code>metadata</code> block</strong></td>
+          <td style="color:#94a3b8">Same pattern as Evaluation: <code>{ model, promptVersion, extractedAt, inputCharCount }</code>. Allows correlating extraction quality to prompt changes over time. <code>promptVersion</code> is a string constant bumped manually on each prompt edit — no runtime inference needed.</td>
         </tr>
       </tbody>
     </table>

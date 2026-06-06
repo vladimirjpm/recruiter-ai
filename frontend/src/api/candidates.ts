@@ -19,3 +19,6 @@ export const uploadCandidates = (files: File[]) => {
 
 export const deleteCandidate = (id: string) =>
   apiClient.delete(`/candidates/${id}`);
+
+export const getCandidateResumeText = (id: string) =>
+  apiClient.get<{ text: string }>(`/candidates/${id}/resume-text`).then(r => r.data.text);
