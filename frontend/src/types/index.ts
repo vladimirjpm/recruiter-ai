@@ -66,6 +66,16 @@ export interface Evaluation {
   estimatedCost: number | null;
   createdAt: string;
   isStale: boolean;
+
+  // Recruiter override — lives on PositionCandidate on the backend, surfaced here as a flat view.
+  // FinalScore = clamp(score + recruiterAdjustment, 0, 100). AI score itself is never modified.
+  recruiterAdjustment: number;
+  recruiterComment: string | null;
+  adjustedBy: string | null;
+  adjustedAt: string | null;
+  finalScore: number;
+  // True when the adjustment predates the latest AI re-screen — UI should warn the recruiter.
+  isAdjustmentStale: boolean;
 }
 
 export type ConfidenceLevel = 'High' | 'Low' | 'NotDetected';

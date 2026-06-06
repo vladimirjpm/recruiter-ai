@@ -189,6 +189,34 @@
         <span class="dec-q">Export</span>
         <div><div class="dec-a">CSV results download</div><div class="dec-why">Sufficient for MVP — recruiters open CSV in Excel</div></div>
       </div>
+      <div class="decision">
+        <span class="dec-q">Evaluation history</span>
+        <div><div class="dec-a">Append-only rows, no UPSERT on (PositionId, CandidateId)</div><div class="dec-why">Full audit trail for AI decisions. Each row stores model, promptVersion, temperature, inputHash, tokens, cost, reasoning. Latest-per-candidate view computed at query time via GroupBy+MaxBy — no isLatest flag. Required for GDPR Art.22 automated decision-making accountability.</div></div>
+      </div>
+      <div class="decision">
+        <span class="dec-q">InputHash</span>
+        <div><div class="dec-a">SHA-256(cvText + positionDescription) stored per evaluation</div><div class="dec-why">Proves which exact content produced a score. Detects CV edits and position description changes between evaluations. Nullable — null for rows predating this field.</div></div>
+      </div>
+      <div class="decision">
+        <span class="dec-q">History UI</span>
+        <div><div class="dec-a">API supports <code>?includeHistory=true</code>, UI shows only latest for MVP</div><div class="dec-why">Database-level audit is sufficient for MVP. History timeline UI deferred — endpoint already exists, one sprint to expose it when a recruiter requests it.</div></div>
+      </div>
+      <div class="decision">
+        <span class="dec-q">Recruiter override</span>
+        <div><div class="dec-a">Adjustment <code>[-30, +30]</code> on PositionCandidate, NOT on Evaluation</div><div class="dec-why">AI score stays immutable — recruiter applies a delta on top. Lives on PositionCandidate so it survives re-screening (recruiter opinion doesn't reset because AI re-ran). FinalScore = clamp(latestEvaluation.Score + RecruiterAdjustment, 0, 100), computed in DTO, never stored.</div></div>
+      </div>
+      <div class="decision">
+        <span class="dec-q">Override semantics</span>
+        <div><div class="dec-a">Non-zero adjustment requires comment ≥10 chars; <code>adjustment=0</code> resets all override fields</div><div class="dec-why">Without justification, adjustments become unauditable noise. Reset semantics keep state clean — no orphan comment after the recruiter changes their mind.</div></div>
+      </div>
+      <div class="decision">
+        <span class="dec-q">Stale override</span>
+        <div><div class="dec-a"><code>IsAdjustmentStale</code> = true when AdjustedAt &lt; latestEvaluation.CreatedAt</div><div class="dec-why">Re-screen does NOT clear the recruiter adjustment, but a new AI score may invalidate the original justification. UI shows ⚠ so the recruiter reviews whether the override still applies.</div></div>
+      </div>
+      <div class="decision">
+        <span class="dec-q">Adjustment history</span>
+        <div><div class="dec-a">Not stored in DB for MVP — only structured ILogger record</div><div class="dec-why">Only current adjustment lives on PositionCandidate. Each PATCH emits a structured log line (PositionId, CandidateId, Adjustment, AdjustedBy) as a stop-gap audit until <code>PositionCandidateAdjustmentHistory</code> table is added in a future production version.</div></div>
+      </div>
     </div>
   </div>
 

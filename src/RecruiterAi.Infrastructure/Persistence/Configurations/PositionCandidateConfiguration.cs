@@ -19,6 +19,11 @@ public class PositionCandidateConfiguration : IEntityTypeConfiguration<PositionC
 
         b.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
 
+        // Recruiter override: default 0, comment capped to keep audit readable.
+        b.Property(x => x.RecruiterAdjustment).IsRequired().HasDefaultValue(0);
+        b.Property(x => x.RecruiterComment).HasMaxLength(1000);
+        b.Property(x => x.AdjustedBy).HasMaxLength(200);
+
         b.HasOne(x => x.Position)
             .WithMany(p => p.PositionCandidates)
             .HasForeignKey(x => x.PositionId)

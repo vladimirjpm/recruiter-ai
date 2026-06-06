@@ -55,6 +55,11 @@ public class EvaluationsController(
 
         var results = new List<EvaluationDto>(candidates.Count);
 
+        // Pre-load recruiter overrides for all candidates so the response includes FinalScore.
+        var pcByCandidateScreen = await db.PositionCandidates
+            .Where(pc => pc.PositionId == positionId && dto.CandidateIds.Contains(pc.CandidateId))
+            .ToDictionaryAsync(pc => pc.CandidateId, ct);
+
         foreach (var candidate in candidates)
         {
             Evaluation evaluation;
@@ -80,7 +85,11 @@ public class EvaluationsController(
             await db.SaveChangesAsync(ct);
 
             // IsStale is always false immediately after screening.
-            results.Add(ToDto(evaluation, candidate, positionUpdatedAt: null));
+            results.Add(ToDto(
+                evaluation,
+                candidate,
+                positionUpdatedAt: null,
+                pcByCandidateScreen.GetValueOrDefault(candidate.Id)));
         }
 
         return Ok(results);
@@ -101,11 +110,87 @@ public class EvaluationsController(
             .Include(e => e.Candidate)
             .ToListAsync(ct);
 
+        // Recruiter overrides live on PositionCandidate (survive re-screening).
+        // One row per (positionId, candidateId) — load once and map by candidate id.
+        var pcByCandidate = await db.PositionCandidates
+            .Where(pc => pc.PositionId == positionId)
+            .ToDictionaryAsync(pc => pc.CandidateId, ct);
+
         var result = includeHistory
             ? evaluations
             : LatestPerCandidate(evaluations);
 
-        return Ok(result.OrderByDescending(e => e.Score).Select(e => ToDto(e, e.Candidate, position.UpdatedAt)));
+        // Sort by AI score on the backend (default). Final-score sort happens on the frontend.
+        return Ok(result.OrderByDescending(e => e.Score)
+            .Select(e => ToDto(
+                e,
+                e.Candidate,
+                position.UpdatedAt,
+                pcByCandidate.GetValueOrDefault(e.CandidateId))));
+    }
+
+    // .NET: [HttpPatch("candidates/{candidateId:guid}/adjustment")]
+    // Recruiter override on top of the AI score. AI score itself is never modified.
+    [HttpPatch("candidates/{candidateId:guid}/adjustment")]
+    public async Task<IActionResult> UpdateAdjustment(
+        Guid positionId,
+        Guid candidateId,
+        [FromBody] AdjustmentRequestDto dto,
+        CancellationToken ct)
+    {
+        // Range guard — keeps recruiter from drowning the AI signal entirely.
+        if (dto.RecruiterAdjustment is < -30 or > 30)
+            return BadRequest(new { error = "recruiterAdjustment must be between -30 and +30." });
+
+        var pc = await db.PositionCandidates
+            .FirstOrDefaultAsync(x => x.PositionId == positionId && x.CandidateId == candidateId, ct);
+        if (pc is null)
+            return NotFound(new { error = "Candidate is not attached to this position." });
+
+        // 422: adjustment without any AI baseline is meaningless.
+        var latest = await db.Evaluations
+            .Where(e => e.PositionId == positionId && e.CandidateId == candidateId)
+            .OrderByDescending(e => e.CreatedAt)
+            .Include(e => e.Candidate)
+            .FirstOrDefaultAsync(ct);
+        if (latest is null)
+            return UnprocessableEntity(new { error = "No AI evaluation exists for this candidate on this position." });
+
+        if (dto.RecruiterAdjustment == 0)
+        {
+            // Reset semantics: clear comment / attribution as well so no orphan justification remains.
+            pc.RecruiterAdjustment = 0;
+            pc.RecruiterComment    = null;
+            pc.AdjustedBy          = null;
+            pc.AdjustedAt          = null;
+        }
+        else
+        {
+            // Non-zero adjustment always requires a fresh comment (spec rule: changes need re-justification).
+            if (string.IsNullOrWhiteSpace(dto.RecruiterComment) || dto.RecruiterComment.Trim().Length < 10)
+                return BadRequest(new
+                {
+                    error = "recruiterComment is required and must be at least 10 characters " +
+                            "when recruiterAdjustment is non-zero.",
+                });
+
+            pc.RecruiterAdjustment = dto.RecruiterAdjustment;
+            pc.RecruiterComment    = dto.RecruiterComment.Trim();
+            pc.AdjustedBy          = string.IsNullOrWhiteSpace(dto.AdjustedBy) ? null : dto.AdjustedBy.Trim();
+            pc.AdjustedAt          = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        // Belt-and-braces audit: adjustment history is not stored in DB for MVP,
+        // so the structured log line is the only record of who changed what.
+        logger.LogInformation(
+            "Recruiter adjustment updated. PositionId={PositionId} CandidateId={CandidateId} " +
+            "Adjustment={Adjustment} AdjustedBy={AdjustedBy}",
+            positionId, candidateId, pc.RecruiterAdjustment, pc.AdjustedBy ?? "(anonymous)");
+
+        var position = await db.Positions.FindAsync([positionId], ct);
+        return Ok(ToDto(latest, latest.Candidate, position?.UpdatedAt, pc));
     }
 
     // .NET: [HttpGet("evaluations/export")]
@@ -143,27 +228,49 @@ public class EvaluationsController(
             .Select(g => g.MaxBy(e => e.CreatedAt)!)
             .ToList();
 
-    private static EvaluationDto ToDto(Evaluation e, Candidate c, DateTimeOffset? positionUpdatedAt) => new(
-        e.Id,
-        c.Id,
-        c.Name,
-        c.FileName,
-        e.Score,
-        e.MatchLevel.ToString().ToLowerInvariant(),
-        e.Reasoning,
-        e.Strengths,
-        e.Weaknesses,
-        e.MatchedSkills,
-        e.MissingSkills,
-        e.RedFlags,
-        e.InterviewQuestions,
-        e.AiModel,
-        e.PromptVersion,
-        e.InputTokens,
-        e.OutputTokens,
-        e.EstimatedCost,
-        e.CreatedAt,
-        IsStale: positionUpdatedAt.HasValue && e.CreatedAt < positionUpdatedAt.Value);
+    private static EvaluationDto ToDto(
+        Evaluation e,
+        Candidate c,
+        DateTimeOffset? positionUpdatedAt,
+        PositionCandidate? pc)
+    {
+        // FinalScore is computed, never stored — cannot drift from inputs.
+        var adjustment = pc?.RecruiterAdjustment ?? 0;
+        var finalScore = Math.Clamp(e.Score + adjustment, 0, 100);
+
+        // Stale = adjustment exists but predates the AI score we're showing.
+        // Tells the recruiter to re-evaluate whether the comment still applies.
+        var isAdjustmentStale =
+            pc?.AdjustedAt is { } adjAt && adjAt < e.CreatedAt;
+
+        return new EvaluationDto(
+            e.Id,
+            c.Id,
+            c.Name,
+            c.FileName,
+            e.Score,
+            e.MatchLevel.ToString().ToLowerInvariant(),
+            e.Reasoning,
+            e.Strengths,
+            e.Weaknesses,
+            e.MatchedSkills,
+            e.MissingSkills,
+            e.RedFlags,
+            e.InterviewQuestions,
+            e.AiModel,
+            e.PromptVersion,
+            e.InputTokens,
+            e.OutputTokens,
+            e.EstimatedCost,
+            e.CreatedAt,
+            IsStale: positionUpdatedAt.HasValue && e.CreatedAt < positionUpdatedAt.Value,
+            RecruiterAdjustment: adjustment,
+            RecruiterComment: pc?.RecruiterComment,
+            AdjustedBy: pc?.AdjustedBy,
+            AdjustedAt: pc?.AdjustedAt,
+            FinalScore: finalScore,
+            IsAdjustmentStale: isAdjustmentStale);
+    }
 
     private static string BuildCsv(List<Evaluation> evaluations)
     {
@@ -244,4 +351,20 @@ public record EvaluationDto(
     decimal? EstimatedCost,
     DateTimeOffset CreatedAt,
     // True when position was edited after this evaluation was created.
-    bool IsStale = false);
+    bool IsStale = false,
+    // ── Recruiter override (computed view over PositionCandidate) ─────────────
+    int RecruiterAdjustment = 0,
+    string? RecruiterComment = null,
+    string? AdjustedBy = null,
+    DateTimeOffset? AdjustedAt = null,
+    // FinalScore = clamp(Score + RecruiterAdjustment, 0, 100). Never stored.
+    int FinalScore = 0,
+    // True when adjustment was made before the latest AI re-screen — UI should warn.
+    bool IsAdjustmentStale = false);
+
+// Request body for PATCH /api/positions/{positionId}/candidates/{candidateId}/adjustment.
+// AdjustedBy is optional (auth not yet wired — once it is, this comes from the token).
+public record AdjustmentRequestDto(
+    int RecruiterAdjustment,
+    string? RecruiterComment,
+    string? AdjustedBy);

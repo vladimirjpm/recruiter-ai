@@ -36,8 +36,13 @@ export function ScreeningPage() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showEdit, setShowEdit] = useState(false);
-  const [activeEval, setActiveEval] = useState<Evaluation | null>(null);
+  // Store the candidate id, not the evaluation object — otherwise the drawer keeps
+  // a stale snapshot after an adjustment PATCH refreshes the evaluations query.
+  const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
   const [resumeModal, setResumeModal] = useState<{ id: string; name: string } | null>(null);
+  // Recruiter can sort by raw AI score or by Final (AI + adjustment). Default: Final, so
+  // the recruiter's own corrections drive the ranking.
+  const [sortBy, setSortBy] = useState<'ai' | 'final'>('final');
 
   const { data: position } = useQuery({
     queryKey: ['position', positionId],
@@ -113,13 +118,17 @@ export function ScreeningPage() {
       const status: Row['status'] = !ev ? 'unscreened' : ev.isStale ? 'stale' : 'screened';
       return { candidate: c, evaluation: ev, status, displayName: displayNames.get(c.id) ?? formatCandidateName(c.name) };
     });
+    const scoreOf = (r: Row) =>
+      sortBy === 'final'
+        ? r.evaluation?.finalScore ?? r.evaluation?.score ?? 0
+        : r.evaluation?.score ?? 0;
     return {
       toScreen: rows.filter(r => r.status === 'unscreened'),
       screened: rows
         .filter(r => r.status !== 'unscreened')
-        .sort((a, b) => (b.evaluation?.score ?? 0) - (a.evaluation?.score ?? 0)),
+        .sort((a, b) => scoreOf(b) - scoreOf(a)),
     };
-  }, [candidates, evalByCandidate, displayNames]);
+  }, [candidates, evalByCandidate, displayNames, sortBy]);
 
   const candidatesById = useMemo(
     () => new Map(candidates.map(c => [c.id, c])),
@@ -165,9 +174,15 @@ export function ScreeningPage() {
     if (row.status === 'unscreened') {
       toggle(row.candidate.id);
     } else if (row.evaluation) {
-      setActiveEval(row.evaluation);
+      setActiveCandidateId(row.candidate.id);
     }
   };
+
+  // Always pull the freshest evaluation from the query cache so the drawer
+  // re-renders after a recruiter adjustment PATCH invalidates ['evaluations', positionId].
+  const activeEval: Evaluation | null = activeCandidateId
+    ? evalByCandidate.get(activeCandidateId) ?? null
+    : null;
 
   return (
     <div className="p-6 max-w-5xl mx-auto flex flex-col gap-5">
@@ -260,13 +275,42 @@ export function ScreeningPage() {
             )}
             <div className="ml-auto flex items-center gap-2">
               {screened.length > 0 && (
-                <a
-                  href={getEvaluationsCsvUrl(positionId)}
-                  download
-                  className="btn-secondary text-xs"
-                >
-                  Export CSV
-                </a>
+                <>
+                  <div className="flex items-center text-xs border border-gray-700 rounded overflow-hidden">
+                    <span className="px-2 py-1 text-gray-500 bg-gray-800/50">Sort by</span>
+                    <button
+                      type="button"
+                      onClick={() => setSortBy('ai')}
+                      className={`px-2 py-1 transition-colors ${
+                        sortBy === 'ai'
+                          ? 'bg-blue-900/40 text-blue-200'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                      title="Rank by raw AI score, ignoring recruiter overrides"
+                    >
+                      AI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSortBy('final')}
+                      className={`px-2 py-1 transition-colors ${
+                        sortBy === 'final'
+                          ? 'bg-blue-900/40 text-blue-200'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                      title="Rank by AI + recruiter adjustment"
+                    >
+                      Final
+                    </button>
+                  </div>
+                  <a
+                    href={getEvaluationsCsvUrl(positionId)}
+                    download
+                    className="btn-secondary text-xs"
+                  >
+                    Export CSV
+                  </a>
+                </>
               )}
             </div>
           </div>
@@ -296,7 +340,6 @@ export function ScreeningPage() {
                   <th className="px-3 py-2 text-left text-gray-400 font-medium">Status</th>
                   <th className="px-3 py-2 text-left text-gray-400 font-medium">Score</th>
                   <th className="px-3 py-2 text-left text-gray-400 font-medium">Level</th>
-                  <th className="px-3 py-2 text-left text-gray-400 font-medium">Reasoning</th>
                   <th className="px-3 py-2 text-left text-gray-400 font-medium">Source</th>
                   <th className="w-8 px-3 py-2" />
                 </tr>
@@ -348,7 +391,7 @@ export function ScreeningPage() {
                 )}
                 {toScreen.length === 0 && screened.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-3 py-6 text-center text-sm text-gray-500">
+                    <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">
                       {loadingCandidates || loadingEvals ? 'Loading…' : 'No candidates.'}
                     </td>
                   </tr>
@@ -413,6 +456,7 @@ export function ScreeningPage() {
 
       <DetailDrawer
         evaluation={activeEval}
+        positionId={positionId || undefined}
         candidateFileUrl={
           activeEval && candidatesById.get(activeEval.candidateId)?.source === 'Uploaded'
             ? getCandidateFileUrl(activeEval.candidateId)
@@ -427,7 +471,7 @@ export function ScreeningPage() {
                 })
             : undefined
         }
-        onClose={() => setActiveEval(null)}
+        onClose={() => setActiveCandidateId(null)}
       />
 
       {showEdit && position && (
@@ -461,7 +505,7 @@ function SectionRow({ label, tone }: { label: string; tone: 'blue' | 'gray' }) {
   return (
     <tr>
       <td
-        colSpan={8}
+        colSpan={7}
         className={`px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold border-y ${cls}`}
       >
         {label}
@@ -484,12 +528,14 @@ function PipelineRow({
   const { candidate: c, evaluation: e, status, displayName } = row;
   const actionable = status !== 'screened';
 
+  // Adjacent <tr>s sharing the same hover/selected state so they read as one row.
+  const rowBg = selected ? 'bg-blue-900/20' : 'hover:bg-gray-800/40';
+
   return (
+    <>
     <tr
       onClick={onClick}
-      className={`border-b border-gray-800/50 cursor-pointer transition-colors ${
-        selected ? 'bg-blue-900/20' : 'hover:bg-gray-800/40'
-      }`}
+      className={`cursor-pointer transition-colors ${rowBg} ${e?.reasoning ? '' : 'border-b border-gray-800/50'}`}
     >
       <td className="px-3 py-2.5">
         {actionable ? (
@@ -533,11 +579,30 @@ function PipelineRow({
           )}
         </div>
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-2.5 whitespace-nowrap">
         <StatusBadge status={status} />
       </td>
       <td className="px-3 py-2.5">
-        {e ? <ScoreBadge score={e.score} matchLevel={e.matchLevel} /> : <span className="text-gray-600">—</span>}
+        {e ? (
+          <div className="flex items-center gap-1.5">
+            <ScoreBadge score={e.score} matchLevel={e.matchLevel} />
+            {e.recruiterAdjustment !== 0 && (
+              <span
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700"
+                title={`Final: ${e.finalScore} (AI ${e.score}${
+                  e.recruiterAdjustment >= 0 ? '+' : ''
+                }${e.recruiterAdjustment})${
+                  e.isAdjustmentStale ? ' — adjustment predates latest screen' : ''
+                }`}
+              >
+                →{e.finalScore}
+                {e.isAdjustmentStale && <span className="ml-1 text-amber-400">⚠</span>}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-gray-600">—</span>
+        )}
       </td>
       <td className="px-3 py-2.5">
         {e ? (
@@ -555,9 +620,6 @@ function PipelineRow({
         ) : (
           <span className="text-gray-600">—</span>
         )}
-      </td>
-      <td className="px-3 py-2.5 text-gray-400 max-w-xs truncate">
-        {e?.reasoning ?? <span className="text-gray-600">—</span>}
       </td>
       <td className="px-3 py-2.5">
         <span
@@ -581,6 +643,20 @@ function PipelineRow({
         </button>
       </td>
     </tr>
+    {e?.reasoning && (
+      <tr
+        onClick={onClick}
+        className={`border-b border-gray-800/50 cursor-pointer transition-colors ${rowBg}`}
+      >
+        {/* Empty leading cells line up the reasoning under the Name column,
+            full-width content area gives the text room to breathe without being clipped. */}
+        <td />
+        <td colSpan={6} className="px-3 pb-2.5 pt-0 text-xs text-gray-400 leading-relaxed">
+          {e.reasoning}
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 
@@ -688,8 +764,19 @@ function PipelineCard({
           </div>
 
           {e && (
-            <div className="flex items-center gap-2 mt-2.5">
+            <div className="flex items-center gap-2 mt-2.5 flex-wrap">
               <ScoreBadge score={e.score} matchLevel={e.matchLevel} />
+              {e.recruiterAdjustment !== 0 && (
+                <span
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700"
+                  title={`Final: ${e.finalScore} (AI ${e.score}${
+                    e.recruiterAdjustment >= 0 ? '+' : ''
+                  }${e.recruiterAdjustment})`}
+                >
+                  →{e.finalScore}
+                  {e.isAdjustmentStale && <span className="ml-1 text-amber-400">⚠</span>}
+                </span>
+              )}
               <span
                 className={`text-xs px-2 py-0.5 rounded capitalize ${
                   e.matchLevel === 'strong'
