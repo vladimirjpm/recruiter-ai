@@ -590,21 +590,23 @@
       </div>
     </div>
 
-    <div class="stage">
-      <div class="stage-badge">6</div>
+    <div class="stage" style="border-color:#166534;background:#052e16">
+      <div class="stage-badge" style="background:#166534;color:#4ade80">✓</div>
       <div class="stage-info">
-        <h3>Deployment</h3>
-        <p>Railway for .NET API + PostgreSQL with pgvector, Vercel for React UI</p>
+        <h3 style="color:#4ade80">Deployment <span style="font-size:0.75rem;font-weight:400;color:#4ade80;margin-left:0.5rem">DONE</span></h3>
+        <p>Railway for .NET API + PostgreSQL with pgvector, Vercel for React UI — both LIVE, end-to-end verified.</p>
         <div class="stage-tasks">
-          <div class="task key" style="color:#4ade80">✓ Dockerfile — multi-stage SDK→runtime, uploads volume, ASPNETCORE_URLS=http://+:8080</div>
-          <div class="task key" style="color:#4ade80">✓ railway.toml — builder=dockerfile, healthcheckPath=/health, restart policy</div>
+          <div class="task key" style="color:#4ade80">✓ Dockerfile — multi-stage SDK→runtime, ASPNETCORE_URLS=http://+:8080 (VOLUME removed — Railway uses native Volumes)</div>
+          <div class="task key" style="color:#4ade80">✓ railway.toml — builder=dockerfile, healthcheckPath=/health, restartPolicyType=ON_FAILURE</div>
           <div class="task key" style="color:#4ade80">✓ frontend/vercel.json — vite framework, SPA rewrites (/* → /index.html)</div>
-          <div class="task key" style="color:#4ade80">✓ .env.example — corrected to Llm__ApiKey / Llm__Model (matches DI config), CORS placeholder</div>
+          <div class="task key" style="color:#4ade80">✓ .env.example — Llm__ApiKey / Llm__Model (matches DI config), CORS placeholder</div>
           <div class="task key" style="color:#4ade80">✓ README — frontend setup, Railway env vars table, Vercel deploy steps, pgvector check note</div>
           <div class="task key" style="color:#4ade80">✓ EF migrations run automatically on startup (guarded: skipped for InMemory provider in tests)</div>
-          <div class="task key">Railway: create project, add PostgreSQL service, connect GitHub repo, set env vars (Llm__ApiKey, Cors__AllowedOrigins__0)</div>
-          <div class="task key">Vercel: import repo, set Root Directory = <code style="color:#fbbf24">frontend</code>, set VITE_API_URL = Railway URL</div>
-          <div class="task">Verify pgvector on Railway PG — <code style="color:#fbbf24">CREATE EXTENSION IF NOT EXISTS vector</code> must succeed before first deploy</div>
+          <div class="task key" style="color:#4ade80">✓ HttpsRedirection disabled in Production — Railway proxy terminates TLS, would otherwise 307 the healthcheck</div>
+          <div class="task key" style="color:#4ade80">✓ Railway: project <code style="color:#4ade80">sincere-mercy</code> · Postgres service + persistent volume <code style="color:#4ade80">postgres-volume</code> · ConnectionStrings__Postgres via <code style="color:#4ade80">${{Postgres.PGHOST}}</code> references</div>
+          <div class="task key" style="color:#4ade80">✓ Vercel: Root Directory = <code style="color:#4ade80">frontend</code>, VITE_API_URL → Railway URL, auto-deploy on push to main</div>
+          <div class="task key" style="color:#4ade80">✓ CORS: Cors__AllowedOrigins__0 = Vercel URL, ASPNETCORE_ENVIRONMENT=Production on Railway</div>
+          <div class="task key" style="color:#4ade80">✓ End-to-end verified: <a href="https://recruiter-ai-production-992b.up.railway.app/health" target="_blank" rel="noopener" style="color:#4ade80">API /health</a> → Healthy · <a href="https://recruiter-ai-gamma-woad.vercel.app" target="_blank" rel="noopener" style="color:#4ade80">UI</a> loads and talks to API</div>
         </div>
       </div>
     </div>
@@ -744,13 +746,23 @@
     <h2>Services</h2>
     <div class="deploy-row">
       <span class="deploy-svc">Railway</span>
-      <span class="deploy-what">.NET 10 API + PostgreSQL 16 with pgvector</span>
-      <span class="deploy-note">$5/mo hobby plan · auto-deploy from GitHub</span>
+      <span class="deploy-what">
+        .NET 10 API + PostgreSQL 16 with pgvector ·
+        <a href="https://recruiter-ai-production-992b.up.railway.app/health" target="_blank" rel="noopener" style="color:#4ade80;text-decoration:none">
+          recruiter-ai-production-992b.up.railway.app
+        </a>
+      </span>
+      <span class="deploy-note">$5/mo hobby plan · auto-deploy from GitHub · <span style="color:#4ade80">LIVE</span></span>
     </div>
     <div class="deploy-row">
       <span class="deploy-svc">Vercel</span>
-      <span class="deploy-what">React frontend</span>
-      <span class="deploy-note">Free tier · auto-deploy from /frontend</span>
+      <span class="deploy-what">
+        React frontend ·
+        <a href="https://recruiter-ai-gamma-woad.vercel.app" target="_blank" rel="noopener" style="color:#4ade80;text-decoration:none">
+          recruiter-ai-gamma-woad.vercel.app
+        </a>
+      </span>
+      <span class="deploy-note">Free tier · auto-deploy from /frontend · <span style="color:#4ade80">LIVE</span></span>
     </div>
     <div class="deploy-row">
       <span class="deploy-svc">OpenAI</span>
