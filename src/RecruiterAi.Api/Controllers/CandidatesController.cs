@@ -152,9 +152,20 @@ public class CandidatesController(
     }
 
     // .NET: [HttpPost("upload")]
+    // Optional ?positionId= attaches every uploaded candidate to that position
+    // via the PositionCandidate junction (SourceContext=Uploaded). If the position
+    // does not exist, returns 404 before any file is parsed or saved.
     [HttpPost("upload")]
-    public async Task<IActionResult> Upload(CancellationToken ct)
+    public async Task<IActionResult> Upload(
+        [FromQuery] Guid? positionId,
+        CancellationToken ct)
     {
+        if (positionId is { } pid &&
+            !await db.Positions.AnyAsync(p => p.Id == pid, ct))
+        {
+            return NotFound(new { error = "Position not found." });
+        }
+
         var files = Request.Form.Files;
 
         logger.LogInformation(LogEvents.CvUploadStarted,
@@ -322,6 +333,21 @@ public class CandidatesController(
                 // + file hash (exact binary match) or raw_text fingerprint (SHA256 of normalized
                 // text — catches renamed files). Name-based matching is unreliable (common surnames).
                 db.Candidates.Add(candidate);
+
+                // Attach to the supplied position via the junction. SourceContext=Uploaded
+                // distinguishes this from Generated/ManuallyAttached in later UI surfaces.
+                if (positionId is { } attachPid)
+                {
+                    db.PositionCandidates.Add(new PositionCandidate
+                    {
+                        Id            = Guid.NewGuid(),
+                        PositionId    = attachPid,
+                        CandidateId   = candidate.Id,
+                        SourceContext = PositionCandidateSource.Uploaded,
+                        CreatedAt     = candidate.UploadedAt,
+                    });
+                }
+
                 // TODO Future: cleanup saved file on disk if SaveChangesAsync fails (currently the
                 // file is persisted but the DB record is not, leaving an orphaned file).
                 await db.SaveChangesAsync(ct);

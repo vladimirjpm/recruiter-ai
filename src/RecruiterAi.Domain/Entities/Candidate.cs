@@ -53,6 +53,9 @@ public class Candidate
     // The candidate<->position relationship is expressed through Evaluations (M:N).
     public ICollection<Evaluation> Evaluations { get; set; } = [];
     public ICollection<CandidateSection> Sections { get; set; } = [];
+
+    // Junction rows: positions this candidate has been attached to.
+    public ICollection<PositionCandidate> PositionCandidates { get; set; } = [];
 }
 
 /// <summary>

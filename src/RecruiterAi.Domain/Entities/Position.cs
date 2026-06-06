@@ -25,4 +25,8 @@ public class Position
 
     public ICollection<Evaluation> Evaluations { get; set; } = [];
     public ICollection<CvGenerationBatch> GenerationBatches { get; set; } = [];
+
+    // Junction rows: candidates explicitly attached to this position.
+    // The actual screening result lives on Evaluation; this only records attachment.
+    public ICollection<PositionCandidate> PositionCandidates { get; set; } = [];
 }

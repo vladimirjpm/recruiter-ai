@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<Evaluation> Evaluations => Set<Evaluation>();
     public DbSet<CvGenerationBatch> CvGenerationBatches => Set<CvGenerationBatch>();
     public DbSet<CandidateSection> CandidateSections => Set<CandidateSection>();
+    public DbSet<PositionCandidate> PositionCandidates => Set<PositionCandidate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

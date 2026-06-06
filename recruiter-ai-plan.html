@@ -971,6 +971,16 @@
           <td><strong style="color:#f8fafc">Extraction response includes <code>metadata</code> block</strong></td>
           <td style="color:#94a3b8">Same pattern as Evaluation: <code>{ model, promptVersion, extractedAt, inputCharCount }</code>. Allows correlating extraction quality to prompt changes over time. <code>promptVersion</code> is a string constant bumped manually on each prompt edit — no runtime inference needed.</td>
         </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Position ↔ Candidate Relation</td>
+          <td><strong style="color:#f8fafc">Junction table <code>PositionCandidate</code> with <code>SourceContext</code></strong></td>
+          <td style="color:#94a3b8">Candidates remain globally reusable, but attach to positions through an explicit junction (<code>PositionId</code>, <code>CandidateId</code>, <code>SourceContext: Uploaded / Generated / ManuallyAttached</code>, <code>CreatedAt</code>). Mirrors how real ATS (Greenhouse, Lever) model it. <strong>Cascade:</strong> hard delete on junction when Candidate is deleted; Position uses soft-delete so Evaluations remain as audit trail. <strong>Idempotency:</strong> <code>POST /positions/{id}/candidates/{cid}</code> is upsert — returns existing row on duplicate. <strong>Backfill:</strong> migration creates a <code>ManuallyAttached</code> row for every existing <code>(positionId, candidateId)</code> pair found in Evaluations so demo data does not disappear post-deploy.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Selected Position Persistence</td>
+          <td><strong style="color:#f8fafc">URL query param <code>?positionId=</code> + localStorage fallback</strong></td>
+          <td style="color:#94a3b8">URL is source of truth — shareable links, browser back/forward, refresh-safe. localStorage stores "last used position" only as the initial value when landing on a page without the query param. No global state library (Redux/Zustand) — overkill for the current scope.</td>
+        </tr>
       </tbody>
     </table>
   </div>

@@ -2,6 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using RecruiterAi.Api.Logging;
+using RecruiterAi.Domain.Entities;
+using RecruiterAi.Domain.Enums;
 using RecruiterAi.Domain.Interfaces;
 using RecruiterAi.Infrastructure.Persistence;
 
@@ -38,6 +40,22 @@ public class GeneratorController(
 
         db.CvGenerationBatches.Add(result.Batch);
         db.Candidates.AddRange(result.Candidates);
+
+        // Attach every generated candidate to this position via the junction.
+        // SourceContext=Generated lets the UI surface "Generated" badges later.
+        var now = DateTimeOffset.UtcNow;
+        foreach (var c in result.Candidates)
+        {
+            db.PositionCandidates.Add(new PositionCandidate
+            {
+                Id            = Guid.NewGuid(),
+                PositionId    = positionId,
+                CandidateId   = c.Id,
+                SourceContext = PositionCandidateSource.Generated,
+                CreatedAt     = now,
+            });
+        }
+
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation(LogEvents.GenerationBatchCompleted,

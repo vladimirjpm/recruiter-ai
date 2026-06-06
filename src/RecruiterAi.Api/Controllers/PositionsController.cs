@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RecruiterAi.Api.Logging;
 using RecruiterAi.Domain.Entities;
+using RecruiterAi.Domain.Enums;
 using RecruiterAi.Domain.Interfaces;
 using RecruiterAi.Infrastructure.Persistence;
 
@@ -130,6 +131,98 @@ public class PositionsController(
         return NoContent();
     }
 
+    // .NET: [HttpGet("{id:guid}/candidates")]
+    // Returns candidates attached to a position via the PositionCandidate junction.
+    // Pagination: ?limit=&offset= — limit clamped to [1, 200], default 50.
+    [HttpGet("{id:guid}/candidates")]
+    public async Task<IActionResult> GetCandidates(
+        Guid id,
+        [FromQuery] int? limit,
+        [FromQuery] int? offset,
+        CancellationToken ct)
+    {
+        var positionExists = await db.Positions.AnyAsync(p => p.Id == id, ct);
+        if (!positionExists) return NotFound(new { error = "Position not found." });
+
+        var take = Math.Clamp(limit ?? 50, 1, 200);
+        var skip = Math.Max(offset ?? 0, 0);
+
+        var query = db.PositionCandidates
+            .AsNoTracking()
+            .Where(pc => pc.PositionId == id)
+            .OrderByDescending(pc => pc.CreatedAt);
+
+        var total = await query.CountAsync(ct);
+
+        var items = await query
+            .Skip(skip)
+            .Take(take)
+            .Join(db.Candidates, pc => pc.CandidateId, c => c.Id, (pc, c) =>
+                new PositionCandidateDto(
+                    c.Id, c.Name, c.Email, c.FileName, c.StoragePath,
+                    c.Language, c.Source.ToString(), c.UploadedAt,
+                    pc.SourceContext.ToString(), pc.CreatedAt))
+            .ToListAsync(ct);
+
+        return Ok(new PositionCandidatesPageDto(items, total, skip, take));
+    }
+
+    // .NET: [HttpPost("{id:guid}/candidates/{candidateId:guid}")]
+    // Idempotent attach: returns the existing junction row if one already exists,
+    // otherwise creates and returns a new one with SourceContext=ManuallyAttached.
+    // Always 200/201 — never 409 — so the frontend can call this unconditionally.
+    [HttpPost("{id:guid}/candidates/{candidateId:guid}")]
+    public async Task<IActionResult> AttachCandidate(Guid id, Guid candidateId, CancellationToken ct)
+    {
+        var positionExists = await db.Positions.AnyAsync(p => p.Id == id, ct);
+        if (!positionExists) return NotFound(new { error = "Position not found." });
+
+        var candidateExists = await db.Candidates.AnyAsync(c => c.Id == candidateId, ct);
+        if (!candidateExists) return NotFound(new { error = "Candidate not found." });
+
+        var existing = await db.PositionCandidates
+            .FirstOrDefaultAsync(pc => pc.PositionId == id && pc.CandidateId == candidateId, ct);
+
+        if (existing is not null)
+        {
+            return Ok(new PositionCandidateLinkDto(
+                existing.Id, existing.PositionId, existing.CandidateId,
+                existing.SourceContext.ToString(), existing.CreatedAt));
+        }
+
+        var link = new PositionCandidate
+        {
+            Id            = Guid.NewGuid(),
+            PositionId    = id,
+            CandidateId   = candidateId,
+            SourceContext = PositionCandidateSource.ManuallyAttached,
+            CreatedAt     = DateTimeOffset.UtcNow,
+        };
+
+        db.PositionCandidates.Add(link);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Race: another request inserted the same pair between our check and SaveChanges.
+            // The unique index makes the result identical either way — re-read and return.
+            db.Entry(link).State = EntityState.Detached;
+            var raced = await db.PositionCandidates
+                .AsNoTracking()
+                .FirstAsync(pc => pc.PositionId == id && pc.CandidateId == candidateId, ct);
+            return Ok(new PositionCandidateLinkDto(
+                raced.Id, raced.PositionId, raced.CandidateId,
+                raced.SourceContext.ToString(), raced.CreatedAt));
+        }
+
+        return StatusCode(201, new PositionCandidateLinkDto(
+            link.Id, link.PositionId, link.CandidateId,
+            link.SourceContext.ToString(), link.CreatedAt));
+    }
+
     private static PositionDto ToDto(Position p) => new(
         p.Id, p.Title, p.Description, p.Country, p.SeniorityLevel,
         p.RequiredSkills, p.NiceToHaveSkills, p.CreatedAt, p.UpdatedAt);
@@ -197,6 +290,31 @@ public record ExtractionMetadataDto(
     string PromptVersion,
     DateTimeOffset ExtractedAt,
     int InputCharCount);
+
+public record PositionCandidateDto(
+    Guid Id,
+    string Name,
+    string? Email,
+    string FileName,
+    string? StoragePath,
+    string Language,
+    string Source,
+    DateTimeOffset UploadedAt,
+    string AttachSourceContext,
+    DateTimeOffset AttachedAt);
+
+public record PositionCandidatesPageDto(
+    List<PositionCandidateDto> Items,
+    int Total,
+    int Offset,
+    int Limit);
+
+public record PositionCandidateLinkDto(
+    Guid Id,
+    Guid PositionId,
+    Guid CandidateId,
+    string SourceContext,
+    DateTimeOffset CreatedAt);
 
 public record ExtractionResultDto(
     string Title,
