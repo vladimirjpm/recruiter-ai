@@ -234,6 +234,7 @@ public class GeneratorWebAppFactory : WebApplicationFactory<Program>
             Replace<ICvParserService, StubCvParser>(services);
             Replace<IResumeEvaluationService, StubResumeEvaluationService>(services);
             Replace<ICvGenerationService, StubCvGenerationService>(services);
+            Replace<IJobDescriptionExtractorService, StubJobDescriptionExtractorService>(services);
         });
     }
 

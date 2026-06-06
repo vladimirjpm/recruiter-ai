@@ -381,6 +381,7 @@ public class EvaluationsWebAppFactory : WebApplicationFactory<Program>
 
             Replace<ICvParserService, StubCvParser>(services);
             Replace<IResumeEvaluationService, StubResumeEvaluationService>(services);
+            Replace<IJobDescriptionExtractorService, StubJobDescriptionExtractorService>(services);
 
         });
     }
