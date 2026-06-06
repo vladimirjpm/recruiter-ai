@@ -17,9 +17,10 @@ RUN dotnet publish src/RecruiterAi.Api/RecruiterAi.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# Uploads volume mount point — overridden via Storage__UploadsPath env var.
+# Uploads directory — mount a persistent volume here (Railway: attach a Volume
+# at /app/uploads via the UI; docker-compose mounts a named volume).
+# Storage__UploadsPath env var overrides the path if needed.
 RUN mkdir -p /app/uploads
-VOLUME ["/app/uploads"]
 
 COPY --from=build /app/publish .
 
