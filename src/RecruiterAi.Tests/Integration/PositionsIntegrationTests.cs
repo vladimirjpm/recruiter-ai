@@ -164,6 +164,65 @@ public class PositionsIntegrationTests : IClassFixture<PositionsWebAppFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // ── Extract (AI) ──────────────────────────────────────────────────────────
+    // The stub extractor throws on any call — these tests cover ONLY the controller's
+    // input validation (length checks happen before the extractor is invoked).
+    // Real OpenAI calls are covered by smoke tests, not integration tests.
+
+    [Fact]
+    public async Task Extract_TextTooShort_Returns400()
+    {
+        // 99 chars — one below the 100-char minimum
+        var dto = new { JobDescriptionText = new string('a', 99) };
+
+        var response = await _client.PostAsJsonAsync("/api/positions/extract", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Extract_EmptyText_Returns400()
+    {
+        var dto = new { JobDescriptionText = "" };
+
+        var response = await _client.PostAsJsonAsync("/api/positions/extract", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Extract_TextTooLong_Returns400()
+    {
+        // 20 001 chars — one above the 20 000-char maximum
+        var dto = new { JobDescriptionText = new string('a', 20_001) };
+
+        var response = await _client.PostAsJsonAsync("/api/positions/extract", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Extract_WhitespaceOnly_Returns400()
+    {
+        // 100 chars of whitespace — passes the length check but IsNullOrWhiteSpace blocks it
+        var dto = new { JobDescriptionText = new string(' ', 100) };
+
+        var response = await _client.PostAsJsonAsync("/api/positions/extract", dto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Extract_ValidLengthButExtractorFails_Returns503()
+    {
+        // Stub throws — controller should convert this to 503 (AI unavailable), not 500.
+        var dto = new { JobDescriptionText = new string('a', 200) };
+
+        var response = await _client.PostAsJsonAsync("/api/positions/extract", dto);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static object SamplePosition(string title) => new
