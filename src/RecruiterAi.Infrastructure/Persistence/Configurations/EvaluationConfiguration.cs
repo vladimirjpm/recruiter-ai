@@ -60,6 +60,9 @@ public class EvaluationConfiguration : IEntityTypeConfiguration<Evaluation>
 
         b.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
 
+        // Nullable: null for evaluations created before this field was introduced.
+        b.Property(x => x.InputHash).HasMaxLength(64);
+
         b.HasOne(x => x.Candidate)
             .WithMany(c => c.Evaluations)
             .HasForeignKey(x => x.CandidateId)

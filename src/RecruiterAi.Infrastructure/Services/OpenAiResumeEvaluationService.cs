@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -149,6 +151,7 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
                 completion.Usage.OutputTokenCount,
                 _model),
             CreatedAt = DateTimeOffset.UtcNow,
+            InputHash = ComputeInputHash(rawText, position.Description),
         };
 
         _logger.LogInformation(
@@ -233,6 +236,16 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
             ChatMessage.CreateSystemMessage(systemPrompt),
             ChatMessage.CreateUserMessage(userPrompt),
         ];
+    }
+
+    /// <summary>
+    /// SHA-256 hex over the exact CV text and position description sent to the model.
+    /// Lets us prove (or disprove) that two evaluations used identical input content.
+    /// </summary>
+    private static string ComputeInputHash(string cvText, string positionDescription)
+    {
+        var input = Encoding.UTF8.GetBytes(cvText + positionDescription);
+        return Convert.ToHexString(SHA256.HashData(input)).ToLowerInvariant();
     }
 
     // Pricing as of 2025 (USD per token). Best-effort estimate stored for cost visibility.

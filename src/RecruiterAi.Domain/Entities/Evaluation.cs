@@ -82,4 +82,12 @@ public class Evaluation
     public decimal? EstimatedCost { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>
+    /// SHA-256 hex hash of the CV text and position description used as input.
+    /// Proves that a score was produced from a specific version of the content —
+    /// useful when a candidate edits their CV or a position description changes.
+    /// Nullable: null for evaluations created before this field was introduced.
+    /// </summary>
+    public string? InputHash { get; set; }
 }
