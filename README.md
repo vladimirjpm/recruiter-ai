@@ -212,7 +212,10 @@ Backend foundation · CV upload + parse · OpenAI screening · synthetic CV gene
 Activate `candidate_sections` table · generate embeddings with `text-embedding-3-small` · swap `ICandidateSearchService` to a pgvector implementation · `IVFFlat` index on `embedding`. No schema migration required.
 
 **Production hardening (deferred from Phase 1)**
-JWT auth + tenant isolation + audit logs · multi-instance migration story (controlled CI step, not on-startup) · Sentry / OpenTelemetry · per-tenant rate limit partitioning · recruiter override panel (manual score adjustment ± delta, clamped to 0–100, with recruiter comment field).
+JWT auth + tenant isolation + audit logs · multi-instance migration story (controlled CI step, not on-startup) · Sentry / OpenTelemetry · per-tenant rate limit partitioning.
+
+**Also shipped (post-Phase 1)**
+Recruiter score override — manual adjustment ± delta, clamped to 0–100, with audit trail (original score, delta, comment, timestamp).
 
 ---
 
