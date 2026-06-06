@@ -93,24 +93,49 @@ railway.toml · frontend/vercel.json
 
 ## Local setup
 
-```powershell
-# 1. Copy env and set your OpenAI key
-cp .env.example .env
-# Edit .env → LLM_API_KEY=sk-...
+**Prerequisites:** Docker Desktop · Node.js 18+
 
-# 2. Everything via Docker Compose
+**Step 1 — create `.env` and fill in your OpenAI key**
+
+```cmd
+copy .env.example .env
+notepad .env
+```
+
+In the editor, set `LLM_API_KEY=sk-...` (copy from <https://platform.openai.com/api-keys>).  
+`Llm__ApiKey` further down in the file is for `dotnet run` — also fill it with the same key if you plan to run without Docker.
+
+> Git Bash / macOS: use `cp .env.example .env`
+
+**Step 2 — start Postgres + API**
+
+```cmd
 docker compose up -d
+```
 
-# — or run dotnet directly —
+Expected output: `Container recruiter-ai-postgres  Healthy` · `Container recruiter-ai-api  Started`
+
+**Step 3 — start the frontend**
+
+```cmd
+cd frontend
+npm install
+npm run dev
+```
+
+Open the URL printed by Vite (usually <http://localhost:5173>, may be 5174 if 5173 is taken).  
+API Swagger: <http://localhost:5150/swagger>
+
+<details>
+<summary>Run API without Docker (requires .NET 10 SDK)</summary>
+
+```cmd
 docker compose up -d postgres
 dotnet ef database update --project src/RecruiterAi.Infrastructure --startup-project src/RecruiterAi.Api
 dotnet run --project src/RecruiterAi.Api
-
-# 3. Frontend
-cd frontend
-npm install
-npm run dev   # http://localhost:5173, /api proxied to :5150
 ```
+
+</details>
 
 Endpoints:
 - Swagger UI — <http://localhost:5150/swagger>

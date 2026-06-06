@@ -4,7 +4,7 @@ import { usePersistedPositionId } from '../utils/usePersistedPositionId';
 import { WorkflowHint } from '../components/WorkflowHint';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { getPosition } from '../api/positions';
+import { getPosition, getPositions } from '../api/positions';
 import { generateCandidates } from '../api/generator';
 import { FitLevelBadge } from '../components/FitLevelBadge';
 import { PositionSelector } from '../components/PositionSelector';
@@ -20,6 +20,11 @@ export function GeneratorPage() {
 
   const [count, setCount] = useState(10);
   const [results, setResults] = useState<GeneratedCandidate[]>([]);
+
+  const { data: positions = [] } = useQuery({
+    queryKey: ['positions'],
+    queryFn: getPositions,
+  });
 
   const { data: position } = useQuery({
     queryKey: ['position', positionId],
@@ -74,6 +79,15 @@ export function GeneratorPage() {
         </div>
       </div>
 
+      {positions.length === 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-950/40 border border-amber-700/40 text-sm text-amber-300">
+          <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0 text-amber-400">
+            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+          </svg>
+          No positions yet — <Link to="/positions" className="underline hover:text-amber-200 ml-1">create a position first</Link>, then come back to generate CVs.
+        </div>
+      )}
+
       {/* Settings */}
       <div className="card flex flex-col gap-5">
         <div className="flex items-center gap-3 flex-wrap">
@@ -116,7 +130,7 @@ export function GeneratorPage() {
           </p>
           <button
             onClick={() => mutation.mutate()}
-            disabled={!positionId || mutation.isPending}
+            disabled={!positionId || positions.length === 0 || mutation.isPending}
             className="btn-primary shrink-0 disabled:opacity-50"
           >
             {mutation.isPending ? 'Generating...' : `Generate ${count} CVs`}
