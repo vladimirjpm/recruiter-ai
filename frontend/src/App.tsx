@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { Layout } from './components/Layout';
+import { PositionsPage } from './pages/PositionsPage';
+import { CandidatesPage } from './pages/CandidatesPage';
 import { ScreeningPage } from './pages/ScreeningPage';
 import { GeneratorPage } from './pages/GeneratorPage';
 
@@ -20,9 +22,12 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<Navigate to="/screening" replace />} />
+            <Route index element={<Navigate to="/positions" replace />} />
+            <Route path="/positions" element={<PositionsPage />} />
+            <Route path="/candidates" element={<CandidatesPage />} />
             <Route path="/screening" element={<ScreeningPage />} />
             <Route path="/generator" element={<GeneratorPage />} />
+            <Route path="*" element={<Navigate to="/positions" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

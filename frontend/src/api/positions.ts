@@ -13,5 +13,8 @@ export const createPosition = (payload: UpsertPositionPayload) =>
 export const updatePosition = (id: string, payload: UpsertPositionPayload) =>
   apiClient.put<Position>(`/positions/${id}`, payload).then(r => r.data);
 
+export const deletePosition = (id: string) =>
+  apiClient.delete(`/positions/${id}`).then(r => r.data);
+
 export const extractPosition = (jobDescriptionText: string) =>
   apiClient.post<ExtractionResult>('/positions/extract', { jobDescriptionText }).then(r => r.data);

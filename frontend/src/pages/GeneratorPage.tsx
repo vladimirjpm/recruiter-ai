@@ -1,67 +1,79 @@
 import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { usePersistedPositionId } from '../utils/usePersistedPositionId';
+import { WorkflowHint } from '../components/WorkflowHint';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { getPositions } from '../api/positions';
+import { getPosition } from '../api/positions';
 import { generateCandidates } from '../api/generator';
 import { FitLevelBadge } from '../components/FitLevelBadge';
-import { CreatePositionModal } from '../components/CreatePositionModal';
-import type { GeneratedCandidate, Position } from '../types';
+import { PositionSelector } from '../components/PositionSelector';
+import { EmptyState } from '../components/EmptyState';
+import type { GeneratedCandidate } from '../types';
 
 const QUICK_COUNTS = [5, 10, 20, 30];
 
 export function GeneratorPage() {
   const qc = useQueryClient();
-  const [positionId, setPositionId] = useState('');
+  const navigate = useNavigate();
+  const [positionId, setPositionId] = usePersistedPositionId();
+
   const [count, setCount] = useState(10);
-  const [showCreate, setShowCreate] = useState(false);
   const [results, setResults] = useState<GeneratedCandidate[]>([]);
 
-  const { data: positions = [] } = useQuery({ queryKey: ['positions'], queryFn: getPositions });
+  const { data: position } = useQuery({
+    queryKey: ['position', positionId],
+    queryFn: () => getPosition(positionId),
+    enabled: !!positionId,
+  });
 
   const mutation = useMutation({
     mutationFn: () => generateCandidates(positionId, count),
     onSuccess: data => {
-      // Generated candidates are saved to the shared pool — invalidate so Screening page reflects them.
-      qc.invalidateQueries({ queryKey: ['candidates'] });
+      // Generator endpoint auto-attaches each candidate to the position via the junction.
+      // Invalidate the scoped query so Candidates/Screening pages refetch.
+      qc.invalidateQueries({ queryKey: ['position-candidates', positionId] });
       setResults(data);
-      toast.success(`${data.length} CVs generated`);
+      toast.success(
+        t => (
+          <span className="flex items-center gap-3">
+            <span>{data.length} CV{data.length !== 1 ? 's' : ''} generated and attached</span>
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                navigate(`/screening?positionId=${positionId}`);
+              }}
+              className="text-blue-300 hover:text-blue-200 font-medium whitespace-nowrap"
+            >
+              Go to Screening →
+            </button>
+          </span>
+        ),
+        { duration: 8000 }
+      );
     },
     onError: () => toast.error('Generation failed'),
   });
 
   return (
     <div className="p-6 max-w-4xl mx-auto flex flex-col gap-5">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-100">Generator</h1>
-        <p className="text-sm text-gray-400 mt-0.5">
-          Generate synthetic CVs to validate screening quality across any job domain.
-        </p>
+      <WorkflowHint current="candidates" />
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-100">Generator</h1>
+          <p className="text-sm text-gray-500 mt-1 truncate max-w-xl">
+            {position?.title ?? 'Generate synthetic CVs to validate screening quality'}
+          </p>
+        </div>
       </div>
 
       {/* Settings */}
       <div className="card flex flex-col gap-5">
-        {/* Position */}
         <div className="flex items-center gap-3 flex-wrap">
           <label className="text-sm font-medium text-gray-300 w-20 shrink-0">Position</label>
-          <select
-            value={positionId}
-            onChange={e => setPositionId(e.target.value)}
-            className="input max-w-sm"
-          >
-            <option value="">— Select a position —</option>
-            {positions.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-                {p.seniorityLevel ? ` · ${p.seniorityLevel}` : ''}
-              </option>
-            ))}
-          </select>
-          <button onClick={() => setShowCreate(true)} className="btn-secondary shrink-0">
-            + New
-          </button>
+          <PositionSelector value={positionId} onChange={setPositionId} className="max-w-sm" />
         </div>
 
-        {/* Count slider */}
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-gray-300 w-20 shrink-0">Count</label>
           <input
@@ -93,7 +105,7 @@ export function GeneratorPage() {
         <div className="flex items-center justify-between pt-2 border-t border-gray-800 gap-4">
           <p className="text-xs text-gray-500 leading-relaxed">
             Requirements are inferred from the job description — no hardcoded domain assumptions.
-            Generated candidates enter the shared pool and can be screened on the Screening page.
+            Generated candidates are attached to the selected position automatically.
           </p>
           <button
             onClick={() => mutation.mutate()}
@@ -104,6 +116,23 @@ export function GeneratorPage() {
           </button>
         </div>
       </div>
+
+      {!positionId && results.length === 0 && (
+        <EmptyState
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-7 h-7">
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2" strokeLinecap="round" />
+            </svg>
+          }
+          title="Select a position to generate CVs"
+          description="Generated candidates are tied to a position so you can validate screening quality end-to-end."
+          action={
+            <Link to="/positions" className="btn-secondary text-sm">
+              Manage Positions →
+            </Link>
+          }
+        />
+      )}
 
       {/* Results */}
       {results.length > 0 && (
@@ -146,20 +175,18 @@ export function GeneratorPage() {
             </table>
           </div>
 
-          <p className="text-xs text-gray-500">
-            These candidates are now in the shared pool. Go to Screening to evaluate them against the position.
-          </p>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs text-gray-500">
+              These candidates are attached to the selected position. Run screening to validate ranks.
+            </p>
+            <button
+              onClick={() => navigate(`/screening?positionId=${positionId}`)}
+              className="btn-primary"
+            >
+              Go to Screening →
+            </button>
+          </div>
         </div>
-      )}
-
-      {showCreate && (
-        <CreatePositionModal
-          onClose={() => setShowCreate(false)}
-          onCreated={(p: Position) => {
-            setShowCreate(false);
-            setPositionId(p.id);
-          }}
-        />
       )}
     </div>
   );
