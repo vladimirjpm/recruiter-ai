@@ -75,17 +75,19 @@ export function CandidatesPage() {
         </div>
       </div>
 
-      <div className="card flex items-center gap-3 flex-wrap">
-        <label className="text-sm font-medium text-gray-300 shrink-0">Position</label>
-        <PositionSelector
-          value={positionId}
-          onChange={setPositionId}
-          className="max-w-sm"
-        />
+      <div className="card flex flex-col md:flex-row md:items-center gap-3 md:flex-wrap">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <label className="text-sm font-medium text-gray-300 shrink-0">Position</label>
+          <PositionSelector
+            value={positionId}
+            onChange={setPositionId}
+            className="flex-1 md:max-w-sm"
+          />
+        </div>
         {positionId && (
           <button
             onClick={() => navigate(`/screening?positionId=${positionId}`)}
-            className="btn-secondary ml-auto"
+            className="btn-secondary md:ml-auto"
           >
             Go to Screening →
           </button>
@@ -142,7 +144,8 @@ export function CandidatesPage() {
             isUploading={uploadMutation.isPending}
           />
 
-          <div className="border border-gray-800 rounded-lg overflow-hidden">
+          {/* Desktop table (lg+) */}
+          <div className="hidden lg:block border border-gray-800 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-800/50">
@@ -197,7 +200,53 @@ export function CandidatesPage() {
             </table>
           </div>
 
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          {/* Mobile + tablet card list */}
+          <div className="lg:hidden flex flex-col gap-2">
+            {candidates.map(c => (
+              <div
+                key={c.id}
+                className="border border-gray-800 rounded-lg p-3 flex items-start gap-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-gray-100 font-medium truncate">
+                    {formatCandidateName(c.name)}
+                  </div>
+                  <div className="text-xs mt-1 truncate">
+                    {c.source === 'Uploaded' ? (
+                      <a
+                        href={getCandidateFileUrl(c.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                        title="Open CV PDF"
+                      >
+                        {c.fileName}
+                      </a>
+                    ) : (
+                      <span className="text-purple-400">Generated CV</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-[11px] text-gray-500 flex-wrap">
+                    <SourceBadge context={c.attachSourceContext} />
+                    <span>· Attached {new Date(c.attachedAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!confirm(`Remove "${formatCandidateName(c.name)}"? This deletes the candidate globally.`)) return;
+                    deleteMutation.mutate(c.id);
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="text-gray-600 hover:text-red-400 transition-colors text-lg leading-none shrink-0"
+                  title="Delete candidate"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-sm text-gray-500">
             <span>{candidates.length} candidate{candidates.length !== 1 ? 's' : ''} attached</span>
             <button
               onClick={() => navigate(`/screening?positionId=${positionId}`)}

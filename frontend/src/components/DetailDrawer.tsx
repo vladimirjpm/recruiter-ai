@@ -16,7 +16,7 @@ export function DetailDrawer({ evaluation, candidateFileUrl, onViewResume, onClo
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-full w-[480px] max-w-full bg-gray-900 border-l border-gray-700 z-50 overflow-y-auto p-6 flex flex-col gap-5">
+      <aside className="fixed right-0 top-0 h-full w-full md:w-[480px] bg-gray-900 border-l border-gray-700 z-50 overflow-y-auto p-6 pb-24 md:pb-6 flex flex-col gap-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-100">{formatCandidateName(evaluation.candidateName)}</h2>

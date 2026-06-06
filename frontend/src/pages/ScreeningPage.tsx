@@ -183,9 +183,11 @@ export function ScreeningPage() {
       </div>
 
       {/* Position picker */}
-      <div className="card flex items-center gap-3 flex-wrap">
-        <label className="text-sm font-medium text-gray-300 shrink-0">Position</label>
-        <PositionSelector value={positionId} onChange={setPositionId} className="max-w-sm" />
+      <div className="card flex flex-col md:flex-row md:items-center gap-3 md:flex-wrap">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <label className="text-sm font-medium text-gray-300 shrink-0">Position</label>
+          <PositionSelector value={positionId} onChange={setPositionId} className="flex-1 md:max-w-sm" />
+        </div>
         {position && (
           <button onClick={() => setShowEdit(true)} className="btn-secondary shrink-0">
             Edit
@@ -275,8 +277,8 @@ export function ScreeningPage() {
             </p>
           )}
 
-          {/* Unified pipeline table */}
-          <div className="border border-gray-800 rounded-lg overflow-hidden">
+          {/* Unified pipeline table — desktop only (lg+) */}
+          <div className="hidden lg:block border border-gray-800 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-800/50">
@@ -353,6 +355,58 @@ export function ScreeningPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile + tablet card list — same data, vertical layout. */}
+          <div className="lg:hidden flex flex-col gap-3">
+            {toScreen.length === 0 && screened.length === 0 ? (
+              <div className="text-center text-sm text-gray-500 py-6">
+                {loadingCandidates || loadingEvals ? 'Loading…' : 'No candidates.'}
+              </div>
+            ) : (
+              <>
+                {toScreen.length > 0 && (
+                  <SectionHeader
+                    label={`To screen (${toScreen.length})`}
+                    tone="blue"
+                  />
+                )}
+                {toScreen.map(row => (
+                  <PipelineCard
+                    key={row.candidate.id}
+                    row={row}
+                    selected={selected.has(row.candidate.id)}
+                    onToggle={() => toggle(row.candidate.id)}
+                    onClick={() => onRowClick(row)}
+                    onRemove={() => onRemove(row)}
+                    onViewResume={() =>
+                      setResumeModal({ id: row.candidate.id, name: row.displayName })
+                    }
+                    disabled={detachMutation.isPending}
+                  />
+                ))}
+                {screened.length > 0 && (
+                  <SectionHeader
+                    label={`Screened (${screened.length}) — sorted by score`}
+                    tone="gray"
+                  />
+                )}
+                {screened.map(row => (
+                  <PipelineCard
+                    key={row.candidate.id}
+                    row={row}
+                    selected={selected.has(row.candidate.id)}
+                    onToggle={() => toggle(row.candidate.id)}
+                    onClick={() => onRowClick(row)}
+                    onRemove={() => onRemove(row)}
+                    onViewResume={() =>
+                      setResumeModal({ id: row.candidate.id, name: row.displayName })
+                    }
+                    disabled={detachMutation.isPending}
+                  />
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -527,6 +581,135 @@ function PipelineRow({
         </button>
       </td>
     </tr>
+  );
+}
+
+function SectionHeader({ label, tone }: { label: string; tone: 'blue' | 'gray' }) {
+  const cls =
+    tone === 'blue'
+      ? 'bg-blue-900/15 text-blue-300 border-blue-900/40'
+      : 'bg-gray-800/40 text-gray-400 border-gray-800';
+  return (
+    <div
+      className={`px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold border rounded-md ${cls}`}
+    >
+      {label}
+    </div>
+  );
+}
+
+// Vertical card variant of PipelineRow for the mobile breakpoint.
+function PipelineCard({
+  row, selected, onToggle, onClick, onRemove, onViewResume, disabled,
+}: {
+  row: Row;
+  selected: boolean;
+  onToggle: () => void;
+  onClick: () => void;
+  onRemove: () => void;
+  onViewResume: () => void;
+  disabled: boolean;
+}) {
+  const { candidate: c, evaluation: e, status, displayName } = row;
+  const actionable = status !== 'screened';
+
+  return (
+    <div
+      onClick={onClick}
+      className={`border rounded-lg p-3 transition-colors ${
+        selected
+          ? 'border-blue-700/60 bg-blue-900/20'
+          : 'border-gray-800 hover:border-gray-700'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {actionable && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            onClick={ev => ev.stopPropagation()}
+            className="accent-blue-500 mt-1"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-gray-100 font-medium">
+                <span className="truncate">{displayName}</span>
+                {c.source === 'Uploaded' ? (
+                  <a
+                    href={getCandidateFileUrl(c.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={ev => ev.stopPropagation()}
+                    className="text-gray-500 hover:text-blue-400 transition-colors shrink-0"
+                    title="Open CV PDF"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                    </svg>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={ev => { ev.stopPropagation(); onViewResume(); }}
+                    className="text-gray-500 hover:text-purple-400 transition-colors shrink-0"
+                    title="View generated CV"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <StatusBadge status={status} />
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded ${
+                    c.source === 'Generated'
+                      ? 'bg-purple-900/40 text-purple-300'
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >
+                  {c.source}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={ev => { ev.stopPropagation(); onRemove(); }}
+              disabled={disabled}
+              className="text-gray-600 hover:text-red-400 transition-colors text-lg leading-none shrink-0"
+              title="Remove from this position"
+            >
+              ×
+            </button>
+          </div>
+
+          {e && (
+            <div className="flex items-center gap-2 mt-2.5">
+              <ScoreBadge score={e.score} matchLevel={e.matchLevel} />
+              <span
+                className={`text-xs px-2 py-0.5 rounded capitalize ${
+                  e.matchLevel === 'strong'
+                    ? 'bg-green-900/40 text-green-300'
+                    : e.matchLevel === 'medium'
+                      ? 'bg-yellow-900/40 text-yellow-300'
+                      : 'bg-red-900/40 text-red-300'
+                }`}
+              >
+                {e.matchLevel}
+              </span>
+            </div>
+          )}
+
+          {e?.reasoning && (
+            <p className="text-xs text-gray-400 mt-2 line-clamp-2">{e.reasoning}</p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

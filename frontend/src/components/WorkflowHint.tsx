@@ -51,7 +51,9 @@ export function WorkflowHint({ current }: Props) {
               >
                 {i + 1}
               </span>
-              <span>{s.label}</span>
+              {/* Hide the label on narrow screens — keeps the chain on one line at 375px. */}
+              <span className="hidden sm:inline">{s.label}</span>
+              <span className="sm:hidden">{isCurrent ? s.label : ''}</span>
             </Link>
             {i < STEPS.length - 1 && <span className="text-gray-700">→</span>}
           </li>

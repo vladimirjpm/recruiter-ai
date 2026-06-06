@@ -27,10 +27,18 @@ const icons = {
   ),
 };
 
+const NAV = [
+  { to: '/positions',  label: 'Positions',  hint: 'Create & edit positions',    icon: icons.positions  },
+  { to: '/candidates', label: 'Candidates', hint: 'Upload & manage candidates', icon: icons.candidates },
+  { to: '/screening',  label: 'Screening',  hint: 'Evaluate candidates',        icon: icons.screening  },
+  { to: '/generator',  label: 'Generator',  hint: 'Generate synthetic CVs',     icon: icons.generator  },
+];
+
 export function Layout() {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex">
-      <nav className="w-64 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
+    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col md:flex-row">
+      {/* Desktop sidebar: hidden on mobile, visible from md up. */}
+      <nav className="hidden md:flex w-64 shrink-0 bg-gray-900 border-r border-gray-800 flex-col">
         <div className="px-5 py-5 border-b border-gray-800 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 text-sm font-bold">
             R
@@ -41,23 +49,45 @@ export function Layout() {
           </div>
         </div>
         <div className="flex flex-col gap-1 p-3 flex-1">
-          <NavItem to="/positions"  label="Positions"  hint="Create & edit positions"     icon={icons.positions}  />
-          <NavItem to="/candidates" label="Candidates" hint="Upload & manage candidates"  icon={icons.candidates} />
-          <NavItem to="/screening"  label="Screening"  hint="Evaluate candidates"         icon={icons.screening}  />
-          <NavItem to="/generator"  label="Generator"  hint="Generate synthetic CVs"      icon={icons.generator}  />
+          {NAV.map(n => (
+            <SidebarItem key={n.to} {...n} />
+          ))}
         </div>
         <div className="px-4 py-3 border-t border-gray-800 text-[11px] text-gray-600">
           Portfolio demo · v0.1
         </div>
       </nav>
-      <main className="flex-1 overflow-y-auto">
+
+      {/* Mobile top bar: brand only — saves screen real estate. */}
+      <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-gray-900 border-b border-gray-800">
+        <div className="w-7 h-7 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 text-xs font-bold">
+          R
+        </div>
+        <div className="leading-tight">
+          <h1 className="text-sm font-semibold text-gray-100">Recruiter AI</h1>
+          <p className="text-[10px] text-gray-500">CV Screening Tool</p>
+        </div>
+      </header>
+
+      {/* Main scroll area — extra bottom padding on mobile to clear the fixed bottom nav. */}
+      <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
         <Outlet />
       </main>
+
+      {/* Mobile bottom nav: fixed, four equal pills. */}
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-gray-900 border-t border-gray-800 flex justify-around px-2 py-2"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}
+      >
+        {NAV.map(n => (
+          <BottomNavItem key={n.to} to={n.to} label={n.label} icon={n.icon} />
+        ))}
+      </nav>
     </div>
   );
 }
 
-function NavItem({
+function SidebarItem({
   to, label, hint, icon,
 }: { to: string; label: string; hint: string; icon: ReactNode }) {
   return (
@@ -82,6 +112,22 @@ function NavItem({
           </span>
         </>
       )}
+    </NavLink>
+  );
+}
+
+function BottomNavItem({ to, label, icon }: { to: string; label: string; icon: ReactNode }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-colors ${
+          isActive ? 'text-blue-400 bg-blue-600/15' : 'text-gray-500 hover:text-gray-200'
+        }`
+      }
+    >
+      <span className="opacity-90">{icon}</span>
+      <span className="text-[10px] font-medium">{label}</span>
     </NavLink>
   );
 }

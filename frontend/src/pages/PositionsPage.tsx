@@ -58,7 +58,7 @@ export function PositionsPage() {
       ) : positions.length === 0 ? (
         <EmptyPositionsState onCreate={() => setShowCreate(true)} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {positions.map(p => (
             <PositionCard
               key={p.id}

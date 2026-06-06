@@ -71,7 +71,7 @@ export function GeneratorPage() {
       <div className="card flex flex-col gap-5">
         <div className="flex items-center gap-3 flex-wrap">
           <label className="text-sm font-medium text-gray-300 w-20 shrink-0">Position</label>
-          <PositionSelector value={positionId} onChange={setPositionId} className="max-w-sm" />
+          <PositionSelector value={positionId} onChange={setPositionId} className="flex-1 md:max-w-sm" />
         </div>
 
         <div className="flex items-center gap-3">
@@ -102,7 +102,7 @@ export function GeneratorPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-800 gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between pt-2 border-t border-gray-800 gap-3 md:gap-4">
           <p className="text-xs text-gray-500 leading-relaxed">
             Requirements are inferred from the job description — no hardcoded domain assumptions.
             Generated candidates are attached to the selected position automatically.
