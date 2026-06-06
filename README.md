@@ -1,173 +1,196 @@
 # Recruiter AI
 
-AI-powered CV screening with GPT-4o mini. Phase 1 is an embedding-free MVP; the schema is RAG-ready (pgvector is installed but not yet used).
+> AI-powered CV screening that ranks candidates against a job description in seconds, with token-level cost accounting and reproducible synthetic-CV evaluation.
+
+[![CI](https://github.com/vladimirjpm/recruiter-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/vladimirjpm/recruiter-ai/actions/workflows/ci.yml)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB)](https://react.dev/)
+[![Live API](https://img.shields.io/badge/API-live-4ade80)](https://recruiter-ai-production-992b.up.railway.app/health)
+[![Live UI](https://img.shields.io/badge/UI-live-4ade80)](https://recruiter-ai-gamma-woad.vercel.app)
+
+| | |
+|---|---|
+| 🌐 **Live UI** | <https://recruiter-ai-gamma-woad.vercel.app> |
+| ⚙️ **Live API** | <https://recruiter-ai-production-992b.up.railway.app/health> |
+| 📋 **Plan** | [recruiter-ai-plan.html](recruiter-ai-plan.html) — full architecture & roadmap |
+
+---
+
+## What it does
+
+A recruiter pastes a job description, uploads CVs (or generates synthetic ones), and gets each candidate scored 0–100 with explained strengths, weaknesses, matched/missing skills, red flags, and ready-to-ask interview questions. The same scoring pipeline runs against synthetic CVs labelled with an expected fit level — so the evaluator can be validated end-to-end without real candidate data.
+
+**Working on it now:**
+
+1. Open the live UI.
+2. **Paste JD tab** → paste a job description → AI pre-fills title, country, seniority, required & nice-to-have skills with **evidence quotes** on hover.
+3. Upload one or more PDF CVs, or click **Generator** to synthesize a batch of CVs across 10 quality categories.
+4. Click **Screen** — every candidate gets a structured evaluation in 3–5 seconds.
+5. Sort by score, open a candidate to see reasoning, export to CSV.
+
+### What proves it actually works
+
+- ✅ **Non-IT roles**: tested with bus driver / electrician / cleaner JDs — evaluator produces meaningful scores and domain-specific interview questions.
+- ✅ **Multi-language**: tested with a Hebrew JD (`נהג/ת אוטובוס`) — extraction and scoring work.
+- ✅ **Synthetic CV validation**: generator produces CVs across 10 expected-fit levels; "excellent" candidates score above "weak" ones with high consistency.
+
+---
 
 ## Stack
 
-- .NET 10 Web API · EF Core 10 · Npgsql
-- PostgreSQL 16 + pgvector (Phase 2)
-- React 18 + Vite + Tailwind CSS
-- OpenAI GPT-4o mini
-- Railway (API + PostgreSQL) · Vercel (UI)
+**Backend** — .NET 10 Web API · EF Core 10 · PostgreSQL 16 + pgvector (Phase 2-ready) · OpenAI SDK · PdfPig · xUnit
+**Frontend** — React 18 · TypeScript · Vite · Tailwind CSS · React Query · React Router · axios · react-hot-toast
+**Infra** — Docker (multi-stage) · GitHub Actions (CI) · Railway (API + Postgres) · Vercel (UI)
 
-## Structure
+---
+
+## Engineering highlights
+
+These are the things worth pointing at in a review:
+
+- **Clean Architecture** (Domain / Infrastructure / Api) — service interfaces in Domain, OpenAI/Npgsql swaps live in Infrastructure, no leakage upward.
+- **Prompt injection defence** (Stage 4) — CV text wrapped in `<cv>…</cv>` delimiters, system prompt explicitly instructs the model to ignore CV-embedded instructions, response shape enforced by strict JSON Schema (`response_format`), score validated server-side.
+- **PII-safe logging** — raw CV text, emails, phones, full prompts never appear in logs. Only `len=…,h=…` fingerprints via `PiiSafe.Fingerprint()`. JSON logs in Prod, readable text in Dev.
+- **Rate limiting on cost endpoints** — `/screen` and `/generate` are partitioned per-IP, fixed window 10/min, protects the OpenAI budget from runaway scripts.
+- **Phase 2-ready schema** — `candidate_sections` + `vector(1536)` columns are migrated and waiting; pgvector extension is enabled. Swapping `ICandidateSearchService` to a pgvector implementation needs no schema migration.
+- **CORS hardened in Production** — empty `Cors:AllowedOrigins` or `"*"` fails fast at startup. No silent open-relay.
+- **EF migrations on startup, gated** — auto-migrate runs only for relational providers (skipped for `InMemoryDatabase` in integration tests).
+- **Generated CVs flow through the exact same evaluation pipeline as uploaded CVs** — no separate scoring path, no test-only branch. Validates the scoring logic across candidate quality levels and job domains.
+- **Synthetic CV cost accounting** — every evaluation persists input/output tokens and estimated USD cost. Visible in the UI footer.
+
+---
+
+## Architecture
 
 ```
+┌──────────────────┐    HTTPS    ┌──────────────────┐    HTTPS    ┌──────────────┐
+│ React + Vite UI  │ ───────────▶│  .NET 10 Web API │ ───────────▶│   OpenAI     │
+│  (Vercel)        │             │   (Railway)      │             │  GPT-4o mini │
+└──────────────────┘             └────────┬─────────┘             └──────────────┘
+                                          │
+                                          ▼
+                                 ┌──────────────────┐
+                                 │  PostgreSQL 16   │
+                                 │  + pgvector      │
+                                 │  (Railway)       │
+                                 └──────────────────┘
+
 src/
-  RecruiterAi.Api/             # ASP.NET Core Web API · Program.cs · Swagger · health · logging
-  RecruiterAi.Domain/          # Entities · Enums · Service interfaces
-  RecruiterAi.Infrastructure/  # AppDbContext · EF configurations · migrations · DI
-  RecruiterAi.Tests/           # xUnit
-docker-compose.yml             # pgvector/pgvector:pg16 for local development
-.github/workflows/ci.yml       # GitHub Actions — build + test
+  RecruiterAi.Domain/          # Entities, Enums, service interfaces (no infrastructure refs)
+  RecruiterAi.Infrastructure/  # AppDbContext, EF configurations, migrations, OpenAI/PdfPig adapters, DI
+  RecruiterAi.Api/             # ASP.NET Core: controllers, Program.cs, Swagger, health, structured logging
+  RecruiterAi.Tests/           # xUnit — 84 tests (unit + integration via WebApplicationFactory)
+frontend/
+  src/pages/      ScreeningPage · GeneratorPage
+  src/components/ CreatePositionModal (with Paste JD tab) · DetailDrawer · DropZone · etc.
+docker-compose.yml             # pgvector/pgvector:pg16 for local dev
+Dockerfile                     # Multi-stage SDK→runtime, port 8080
+railway.toml · frontend/vercel.json
+.github/workflows/ci.yml       # build + test on every push to main
 ```
+
+---
 
 ## Local setup
 
 ```powershell
-# 1. Copy env file and set your OpenAI key
+# 1. Copy env and set your OpenAI key
 cp .env.example .env
-# Edit .env — set LLM_API_KEY=sk-...
+# Edit .env → LLM_API_KEY=sk-...
 
-# 2. PostgreSQL + API via Docker Compose
+# 2. Everything via Docker Compose
 docker compose up -d
 
-# — OR run without Docker —
-
-# 2a. PostgreSQL only
+# — or run dotnet directly —
 docker compose up -d postgres
-
-# 2b. Apply migrations
-dotnet ef database update `
-  --project src/RecruiterAi.Infrastructure `
-  --startup-project src/RecruiterAi.Api
-
-# 2c. API (reads Llm__ApiKey from environment or .env)
+dotnet ef database update --project src/RecruiterAi.Infrastructure --startup-project src/RecruiterAi.Api
 dotnet run --project src/RecruiterAi.Api
-```
 
-- Swagger: <http://localhost:5150/swagger>
-- Health:  <http://localhost:5150/health>
-
-### Frontend
-
-```powershell
+# 3. Frontend
 cd frontend
 npm install
-npm run dev   # http://localhost:5173 — /api proxied to :5150
+npm run dev   # http://localhost:5173, /api proxied to :5150
 ```
 
-`VITE_API_URL` is not set in dev — Vite proxies `/api` to `:5150` automatically.
+Endpoints:
+- Swagger UI — <http://localhost:5150/swagger>
+- Health check — <http://localhost:5150/health>
+
+---
 
 ## Deployment
 
-### Railway (API + PostgreSQL)
+The project deploys to **Railway** (API + Postgres) and **Vercel** (UI). Both pick up config from files committed in the repo:
 
-1. Create a new Railway project, add a **PostgreSQL** service (pgvector is included).
-2. Connect the GitHub repo — Railway picks up `railway.toml` and builds via `Dockerfile`.
-3. Set environment variables in Railway dashboard:
+- `Dockerfile` — Railway builds via dockerfile builder
+- `railway.toml` — healthcheck path, restart policy
+- `frontend/vercel.json` — Vite preset, SPA rewrites
+
+### Railway environment variables
 
 | Variable | Value |
 |---|---|
 | `Llm__ApiKey` | `sk-...` |
 | `Llm__Model` | `gpt-4o-mini` |
-| `ConnectionStrings__Postgres` | Railway auto-injects via `${{Postgres.DATABASE_URL}}` — or set manually |
+| `ConnectionStrings__Postgres` | `Host=${{Postgres.PGHOST}};Port=${{Postgres.PGPORT}};Database=${{Postgres.PGDATABASE}};Username=${{Postgres.PGUSER}};Password=${{Postgres.PGPASSWORD}};SSL Mode=Require;Trust Server Certificate=true` |
 | `Cors__AllowedOrigins__0` | `https://your-app.vercel.app` |
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 
-> **pgvector check:** before first deploy, verify `CREATE EXTENSION IF NOT EXISTS vector;` runs successfully on the Railway PostgreSQL instance. EF migrations run automatically on startup.
+> Mount a Railway Volume at `/app/uploads` for CV file persistence across deploys.
 
-### Vercel (Frontend)
-
-1. Import the GitHub repo in Vercel.
-2. Set **Root Directory** to `frontend`.
-3. Vercel picks up `frontend/vercel.json` — build command and SPA rewrites are pre-configured.
-4. Set environment variable:
+### Vercel environment variables
 
 | Variable | Value |
 |---|---|
 | `VITE_API_URL` | `https://your-app.railway.app` |
 
-5. Add the Vercel deployment URL to Railway's `Cors__AllowedOrigins__0`.
+Set **Root Directory** to `frontend`.
 
-## CI/CD (Phase 1)
+---
 
-GitHub Actions (`.github/workflows/ci.yml`) — runs on every push and PR to `main`:
+## Testing
 
-- **Backend**: `dotnet restore` → `dotnet build` (Release) → `dotnet test`.
-- **Frontend**: `npm ci` → `npm run build` (the job is enabled automatically once `web/package.json` appears).
+- **84 tests** in `RecruiterAi.Tests` — unit + integration via `WebApplicationFactory<Program>` with `InMemoryDatabase`.
+- **Integration coverage** — Positions CRUD, Candidates upload (extension/magic-byte/Content-Type checks), Evaluations (`/screen`, `/evaluations`, CSV export), Generator, AI extraction validation (`/extract` with input-length guards + 503 on extractor failure).
+- **Smoke tests** (`OpenAiSmokeTests`, `GeneratorSmokeTests`) — opt-in, hit real OpenAI when `LLM__APIKEY` is set.
 
-There is intentionally no production deployment pipeline in Phase 1 — Railway (API) and Vercel (UI) deploys are triggered manually.
+```powershell
+dotnet test src/RecruiterAi.Tests
+```
 
-## Logging
+CI runs the same on every push to `main`.
 
-The project uses the built-in `ILogger<T>`. EventIds are centralised in [`LogEvents.cs`](src/RecruiterAi.Api/Logging/LogEvents.cs).
-
-**What is logged:**
-
-| Event                              | EventId   | Stage |
-|------------------------------------|-----------|-------|
-| Position create / update / delete  | 1001–1003 | 2 |
-| CV upload start / complete / reject| 2001–2003 | 3 |
-| PDF parse success / failure        | 2010–2011 | 3 |
-| OpenAI request start / end / fail  | 3001–3003 | 4 |
-| Evaluation completed / failed      | 3010–3011 | 4 |
-| Generation batch start / end / fail| 4001–4003 | 6 |
-
-**What is NEVER logged (PII / secrets):**
-
-- Full CV `raw_text` — only `len=…,h=…` via `PiiSafe.Fingerprint()`.
-- Candidate email — only masked (`j***@example.com`) via `PiiSafe.MaskEmail()`.
-- Phone, full prompt, OpenAI responses containing candidate fields.
-- OpenAI API keys, connection strings.
-
-Production uses JSON logs (`AddJsonConsole`). Development uses readable text. Serilog / OpenTelemetry can be added in Phase 2+ if the need arises.
+---
 
 ## Security
 
-### Prompt injection (Stage 4)
+| Concern | Mitigation |
+|---|---|
+| Prompt injection from CV content | System prompt instructs model to ignore CV instructions; CV wrapped in `<cv>` delimiters; response shape enforced by JSON Schema; score validated server-side (0–100) |
+| Untrusted file uploads | `application/pdf` only · `%PDF` magic bytes verified · 5 MB per file · 25 MB per request · max 10 files |
+| Secrets in logs | `PiiSafe.Fingerprint(file)` and `PiiSafe.MaskEmail(addr)` — raw text, emails, phones, full prompts never logged |
+| Path traversal on `/file` endpoint | Absolute paths rejected; resolved path must start with the configured upload root (`StringComparison.Ordinal`) |
+| Open CORS | `Cors:AllowedOrigins` required in Production; `"*"` rejected at startup |
+| OpenAI budget abuse | Rate limiter on cost endpoints (`/screen`, `/generate`): 10/min per IP, fixed window |
+| `rawText` exposure in list APIs | Generated CV text is only available via `GET /api/candidates/{id}/resume-text` (gated to `Source=Generated`); never serialised in `GET /api/candidates` |
 
-CV text is treated as **untrusted content**:
+**Out of scope for Phase 1 (demo mode):** JWT auth, tenant isolation, audit logs.
 
-- The system prompt explicitly instructs the model to ignore any instructions found inside the CV.
-- CV text is wrapped in `<cv>...</cv>` delimiters (an explicit trusted/untrusted boundary).
-- Model responses use a strict JSON Schema (`response_format`), and the score is validated server-side (0–100).
+---
 
-### Other measures
+## Roadmap
 
-- **CVs are untrusted input**: no part of `raw_text` is ever interpreted as a command.
-- **Logs without PII**: `raw_text`, email, phone, full prompts — never appear in logs.
-- **Secrets via environment variables only**: `OpenAI__ApiKey`, `ConnectionStrings__Postgres` are read from environment variables (see `.env.example`). They are never committed.
-- **File upload limits** (Stage 3): only `application/pdf`, file size cap, max 10 files per request.
-- **Demo auth**: Phase 1 has no authentication. For production, JWT + tenant isolation + audit logs would be required (out of MVP scope).
+**Phase 1 — done** ✅
+Backend foundation · CV upload + parse · OpenAI screening · synthetic CV generator · React UI · Paste-JD AI extraction · deployment.
 
-## QA Plan
+**Phase 2 — semantic search (when scale demands it)**
+Activate `candidate_sections` table · generate embeddings with `text-embedding-3-small` · swap `ICandidateSearchService` to a pgvector implementation · `IVFFlat` index on `embedding`. No schema migration required.
 
-### Manual scenarios
+**Production hardening (deferred from Phase 1)**
+JWT auth + tenant isolation + audit logs · multi-instance migration story (controlled CI step, not on-startup) · Sentry / OpenTelemetry · per-tenant rate limit partitioning · recruiter override panel (manual score adjustment ± delta, clamped to 0–100, with recruiter comment field).
 
-Run a full smoke test after every significant change:
+---
 
-- [ ] Create a position (title + description + required_skills)
-- [ ] Upload 1 PDF — candidate is created and `raw_text` is extracted
-- [ ] Upload 5 PDFs as a single batch
-- [ ] Reject non-PDF files (e.g. `.docx`, `.txt`) — 400 with a clear error message
-- [ ] Evaluate all candidates for a position — every candidate gets a score
-- [ ] Ranking — candidates are sorted by `score DESC`
-- [ ] Open candidate details — strengths/weaknesses/matched_skills/missing_skills/interview_questions are visible
-- [ ] Generate 10 synthetic CVs for an existing position
-- [ ] Generated CVs are visibly tagged **"Generated" / "Synthetic"** in the UI (clearly distinguishable from uploaded CVs)
-- [ ] Evaluate generated CVs through the same pipeline
-- [ ] "Excellent" generated candidates usually score above the "weak" ones
-- [ ] Run the full cycle (create position → generate → evaluate) for a **non-IT profession**: bus driver, electrician, cleaner. The evaluator should produce meaningful scores and interview questions for the domain.
+## License
 
-### Automated tests
-
-Minimum coverage for Phase 1 (in `RecruiterAi.Tests`):
-
-- **Unit · PDF parser**: text extraction from a sample PDF / mock (Stage 3).
-- **Unit · Score validation**: score → `MatchLevel` mapping, rejecting out-of-range values (Stage 4).
-- **Unit · Generator request validation**: `count` ∈ [1, 30], default 10, reject out-of-range (Stage 6).
-- **Integration · Positions CRUD**: `WebApplicationFactory` + Testcontainers PostgreSQL or in-memory provider (Stage 2).
-- **Integration · Candidates upload** (if practical without large mock PDFs): happy path + reject non-PDF (Stage 3).
-
-Heavy tooling (Kubernetes, ELK, Sentry, SonarQube, full deployment automation) is intentionally out of scope for Phase 1.
+MIT.

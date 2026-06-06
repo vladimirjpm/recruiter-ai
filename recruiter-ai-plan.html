@@ -115,6 +115,21 @@
   <h1>Recruiter AI — Development Plan</h1>
   <p class="subtitle">.NET 10 Web API · OpenAI GPT-4o mini · PostgreSQL 16 + pgvector · EF Core 10 · React 18 + Vite · Railway + Vercel</p>
 
+  <!-- STATUS BAR -->
+  <div style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:center;margin-bottom:1.5rem;padding:0.85rem 1.25rem;background:#052e16;border:1px solid #166534;border-radius:10px;font-size:0.88rem">
+    <span style="color:#4ade80;font-weight:600">Phase 1 ✓ DONE</span>
+    <span style="color:#475569">·</span>
+    <span style="color:#cbd5e1">6 / 6 stages complete</span>
+    <span style="color:#475569">·</span>
+    <span style="color:#cbd5e1">84 tests passing</span>
+    <span style="color:#475569">·</span>
+    <span style="color:#4ade80">LIVE in production</span>
+    <span style="flex:1"></span>
+    <a href="https://recruiter-ai-gamma-woad.vercel.app" target="_blank" rel="noopener" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;text-decoration:none;padding:0.35rem 0.8rem;border-radius:6px;font-size:0.82rem;font-weight:500">🌐 Live UI</a>
+    <a href="https://recruiter-ai-production-992b.up.railway.app/health" target="_blank" rel="noopener" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;text-decoration:none;padding:0.35rem 0.8rem;border-radius:6px;font-size:0.82rem;font-weight:500">⚙️ Live API</a>
+    <a href="https://github.com/vladimirjpm/recruiter-ai" target="_blank" rel="noopener" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;text-decoration:none;padding:0.35rem 0.8rem;border-radius:6px;font-size:0.82rem;font-weight:500">📦 Repo</a>
+  </div>
+
   <!-- STACK + DECISIONS -->
   <h2 class="section">Stack &amp; Key Decisions</h2>
   <div class="grid2">
@@ -202,16 +217,21 @@
   <h2 class="section">Cross-Cutting Concerns (Phase 1)</h2>
 
   <div class="card">
-    <h2>CI/CD — GitHub Actions</h2>
+    <h2>CI/CD — GitHub Actions + platform-native auto-deploy</h2>
     <p style="font-size:0.85rem;color:#cbd5e1;line-height:1.6;margin-bottom:0.75rem">
-      Lightweight pipeline: every push and PR to <code style="color:#3b82f6">main</code> must build and tests must pass.
-      No heavy deployment automation in Phase 1 — Railway/Vercel deploys are triggered manually.
+      Two-layer pipeline. <strong style="color:#f8fafc">CI</strong>: every push and PR to
+      <code style="color:#3b82f6">main</code> must build and tests must pass.
+      <strong style="color:#f8fafc">CD</strong>: Railway and Vercel both watch <code style="color:#3b82f6">main</code> and
+      auto-deploy on green push — no manual step.
     </p>
     <div class="stage-tasks" style="margin-top:0">
-      <div class="task key">Backend job: <code style="color:#3b82f6">dotnet restore</code> → <code style="color:#3b82f6">dotnet build --configuration Release</code> → <code style="color:#3b82f6">dotnet test</code></div>
-      <div class="task key">Frontend job: <code style="color:#3b82f6">npm ci</code> → <code style="color:#3b82f6">npm run build</code> · auto-enables when <code style="color:#3b82f6">web/package.json</code> appears (Stage 5)</div>
-      <div class="task key">Workflow file: <code style="color:#3b82f6">.github/workflows/ci.yml</code></div>
-      <div class="task">Out of scope for Phase 1: Kubernetes, Helm, ArgoCD, automated production deploys, container registry pushes</div>
+      <div class="task key" style="color:#4ade80">✓ Backend CI: <code style="color:#4ade80">dotnet restore</code> → <code style="color:#4ade80">dotnet build --configuration Release</code> → <code style="color:#4ade80">dotnet test</code> (84 tests)</div>
+      <div class="task key" style="color:#4ade80">✓ Frontend CI: <code style="color:#4ade80">npm ci</code> → <code style="color:#4ade80">npm run build</code> in <code style="color:#4ade80">frontend/</code></div>
+      <div class="task key" style="color:#4ade80">✓ Workflow file: <code style="color:#4ade80">.github/workflows/ci.yml</code></div>
+      <div class="task key" style="color:#4ade80">✓ Railway auto-deploy from <code style="color:#4ade80">main</code> via <code style="color:#4ade80">railway.toml</code> (dockerfile builder, /health probe, ON_FAILURE restart)</div>
+      <div class="task key" style="color:#4ade80">✓ Vercel auto-deploy from <code style="color:#4ade80">frontend/</code> on every push (Root Directory pinned)</div>
+      <div class="task">Future: promote auto-deploy to a controlled GitHub Actions step (CI must pass first, then trigger deploy via Railway API) — currently CI and deploy run in parallel</div>
+      <div class="task">Out of scope for Phase 1: Kubernetes, Helm, ArgoCD, container registry pushes, blue/green</div>
     </div>
   </div>
 
