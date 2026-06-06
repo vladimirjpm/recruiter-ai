@@ -142,7 +142,13 @@ if (app.Environment.IsDevelopment())
 // CORS before HTTPS redirect: preflight OPTIONS must get CORS headers
 // before the 307 redirect fires, otherwise the browser aborts with a CORS error.
 app.UseCors(CorsPolicy);
-app.UseHttpsRedirection();
+
+// Skip HTTPS redirect in containers behind a TLS-terminating proxy (Railway, etc.):
+// the proxy already serves HTTPS to clients and forwards plain HTTP to the app.
+// Redirecting here would 307 the proxy's healthcheck and any forwarded request.
+if (!app.Environment.IsProduction())
+    app.UseHttpsRedirection();
+
 app.UseRateLimiter();
 
 app.MapHealthChecks("/health");
