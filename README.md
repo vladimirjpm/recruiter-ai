@@ -58,6 +58,8 @@ These are the things worth pointing at in a review:
 - **EF migrations on startup, gated** — auto-migrate runs only for relational providers (skipped for `InMemoryDatabase` in integration tests).
 - **Generated CVs flow through the exact same evaluation pipeline as uploaded CVs** — no separate scoring path, no test-only branch. Validates the scoring logic across candidate quality levels and job domains.
 - **Synthetic CV cost accounting** — every evaluation persists input/output tokens and estimated USD cost. Visible in the UI footer.
+- **OpenAI observability** — every LLM call logs model name, latency (ms), input/output tokens, and estimated USD cost as a structured JSON line. Single `grep` in Railway logs gives a full cost breakdown by operation.
+- **Health split** — `/health/live` (process only) and `/health/ready` (process + DB) via ASP.NET Core tag-based routing. Liveness probe never touches the database, so a transient Postgres blip can't trigger a container restart.
 
 ---
 
@@ -80,7 +82,7 @@ src/
   RecruiterAi.Domain/          # Entities, Enums, service interfaces (no infrastructure refs)
   RecruiterAi.Infrastructure/  # AppDbContext, EF configurations, migrations, OpenAI/PdfPig adapters, DI
   RecruiterAi.Api/             # ASP.NET Core: controllers, Program.cs, Swagger, health, structured logging
-  RecruiterAi.Tests/           # xUnit — 84 tests (unit + integration via WebApplicationFactory)
+  RecruiterAi.Tests/           # xUnit — 100 tests (unit + integration via WebApplicationFactory)
 frontend/
   src/pages/      ScreeningPage · GeneratorPage
   src/components/ CreatePositionModal (with Paste JD tab) · DetailDrawer · DropZone · etc.
@@ -140,13 +142,14 @@ dotnet run --project src/RecruiterAi.Api
 
 Endpoints:
 - Swagger UI — <http://localhost:5150/swagger>
-- Health check — <http://localhost:5150/health>
+- Health (liveness) — <http://localhost:5150/health/live>
+- Health (readiness + DB) — <http://localhost:5150/health/ready>
 
 ---
 
 ## Deployment
 
-**Current flow:** GitHub Actions runs build + tests on every push to `main`. Deploy is triggered manually after green CI — Railway rebuilds from the latest `main`, Vercel picks up the push automatically.
+**Current flow:** GitHub Actions runs build + tests + frontend lint/typecheck/build on every push to `main`. Deploy is triggered manually after green CI — Railway rebuilds from the latest `main`, Vercel picks up the push automatically.
 
 **Planned:** CI success → automatic deploy. Railway exposes a Deploy Hook (webhook URL); the Actions workflow would call it via `curl` only after all checks pass. Vercel supports the same pattern via `vercel deploy --prod` in CI. Not implemented yet — single-contributor project, manual gate is sufficient for now.
 
@@ -180,7 +183,7 @@ Set **Root Directory** to `frontend`.
 
 ## Testing
 
-- **84 tests** in `RecruiterAi.Tests` — unit + integration via `WebApplicationFactory<Program>` with `InMemoryDatabase`.
+- **100 tests** in `RecruiterAi.Tests` — unit + integration via `WebApplicationFactory<Program>` with `InMemoryDatabase`.
 - **Integration coverage** — Positions CRUD, Candidates upload (extension/magic-byte/Content-Type checks), Evaluations (`/screen`, `/evaluations`, CSV export), Generator, AI extraction validation (`/extract` with input-length guards + 503 on extractor failure).
 - **Smoke tests** (`OpenAiSmokeTests`, `GeneratorSmokeTests`) — opt-in, hit real OpenAI when `LLM__APIKEY` is set.
 

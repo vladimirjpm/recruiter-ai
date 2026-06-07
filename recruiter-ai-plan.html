@@ -121,7 +121,7 @@
     <span style="color:#475569">·</span>
     <span style="color:#cbd5e1">6 / 6 stages complete</span>
     <span style="color:#475569">·</span>
-    <span style="color:#cbd5e1">84 tests passing</span>
+    <span style="color:#cbd5e1">100 tests passing</span>
     <span style="color:#475569">·</span>
     <span style="color:#4ade80">LIVE in production</span>
     <span style="flex:1"></span>
@@ -253,8 +253,8 @@
       auto-deploy on green push — no manual step.
     </p>
     <div class="stage-tasks" style="margin-top:0">
-      <div class="task key" style="color:#4ade80">✓ Backend CI: <code style="color:#4ade80">dotnet restore</code> → <code style="color:#4ade80">dotnet build --configuration Release</code> → <code style="color:#4ade80">dotnet test</code> (84 tests)</div>
-      <div class="task key" style="color:#4ade80">✓ Frontend CI: <code style="color:#4ade80">npm ci</code> → <code style="color:#4ade80">npm run build</code> in <code style="color:#4ade80">frontend/</code></div>
+      <div class="task key" style="color:#4ade80">✓ Backend CI: <code style="color:#4ade80">dotnet restore</code> → <code style="color:#4ade80">dotnet build --configuration Release</code> → <code style="color:#4ade80">dotnet test</code> (100 tests)</div>
+      <div class="task key" style="color:#4ade80">✓ Frontend CI: <code style="color:#4ade80">npm ci</code> → <code style="color:#4ade80">npm run lint</code> → <code style="color:#4ade80">npm run typecheck</code> → <code style="color:#4ade80">npm run build</code> in <code style="color:#4ade80">frontend/</code> (ESLint flat config + <code style="color:#4ade80">typescript-eslint</code> + <code style="color:#4ade80">react-hooks</code>)</div>
       <div class="task key" style="color:#4ade80">✓ Workflow file: <code style="color:#4ade80">.github/workflows/ci.yml</code></div>
       <div class="task key" style="color:#4ade80">✓ Railway auto-deploy from <code style="color:#4ade80">main</code> via <code style="color:#4ade80">railway.toml</code> (dockerfile builder, /health probe, ON_FAILURE restart)</div>
       <div class="task key" style="color:#4ade80">✓ Vercel auto-deploy from <code style="color:#4ade80">frontend/</code> on every push (Root Directory pinned)</div>
@@ -272,9 +272,10 @@
     <div class="iface-row"><span class="iface-name">1001–1003</span><span class="iface-mvp">Positions create / update / delete</span></div>
     <div class="iface-row"><span class="iface-name">2001–2003</span><span class="iface-mvp">CV upload start / complete / reject</span></div>
     <div class="iface-row"><span class="iface-name">2010–2011</span><span class="iface-mvp">PDF parse success / failure</span></div>
-    <div class="iface-row"><span class="iface-name">3001–3003</span><span class="iface-mvp">OpenAI request start / completed / failed</span></div>
+    <div class="iface-row"><span class="iface-name">3001–3003</span><span class="iface-mvp">OpenAI request start / completed / failed — includes Model, DurationMs, InputTokens, OutputTokens, EstimatedCostUsd</span></div>
     <div class="iface-row"><span class="iface-name">3010–3011</span><span class="iface-mvp">Evaluation completed / failed</span></div>
-    <div class="iface-row"><span class="iface-name">4001–4003</span><span class="iface-mvp">Generation batch start / completed / failed</span></div>
+    <div class="iface-row"><span class="iface-name">4001–4003</span><span class="iface-mvp">Generation batch start / completed / failed · JD extraction start / completed / failed — includes DurationMs, tokens, cost</span></div>
+    <div class="iface-row"><span class="iface-name">4010–4011</span><span class="iface-mvp">CV generation per-call: InferRequirementsCompleted · GenerateCandidatesCompleted — latency + tokens + cost per LLM call</span></div>
 
     <p style="font-size:0.85rem;color:#fbbf24;line-height:1.6;margin-top:0.85rem;margin-bottom:0.4rem">
       <strong style="color:#fef3c7">NEVER logged (PII / secrets):</strong>
@@ -316,6 +317,8 @@
       <div class="task key" style="color:#4ade80">✓ Integration · POST screen / GET evaluations / CSV export (stub IResumeEvaluationService) — 8 tests — Stage 3 DONE</div>
       <div class="task key" style="color:#4ade80">✓ Smoke · OpenAiSmokeTests (real OpenAI, opt-in via LLM__APIKEY) — 1 test — Stage 3 DONE</div>
       <div class="task key">Unit · generator request validation: count ∈ [1, 30], default 10 — Stage 4</div>
+      <div class="task key" style="color:#4ade80">✓ Frontend ESLint — flat config (typescript-eslint + react-hooks + react-refresh), <code style="color:#4ade80">npm run lint</code> gates CI</div>
+      <div class="task key" style="color:#4ade80">✓ Frontend typecheck — <code style="color:#4ade80">tsc --noEmit</code>, separate from build, gates CI</div>
       <div class="task">Out of scope Phase 1: E2E (Playwright), Sentry, SonarQube, ELK stack</div>
     </div>
   </div>

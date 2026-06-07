@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -60,16 +61,20 @@ public sealed class OpenAiJobDescriptionExtractorService : IJobDescriptionExtrac
                 jsonSchemaIsStrict: true),
         };
 
+        var sw = Stopwatch.StartNew();
         ChatCompletion completion;
         try
         {
             completion = await _chatClient.CompleteChatAsync(messages, callOptions, cancellationToken);
+            sw.Stop();
         }
         catch (Exception ex)
         {
+            sw.Stop();
             _logger.LogError(
                 new EventId(4003, "JdExtractionFailed"), ex,
-                "OpenAI JD extraction failed. Model={Model}", _model);
+                "OpenAI JD extraction failed. Model={Model} DurationMs={DurationMs}",
+                _model, sw.ElapsedMilliseconds);
             throw;
         }
 
@@ -88,12 +93,15 @@ public sealed class OpenAiJobDescriptionExtractorService : IJobDescriptionExtrac
             throw;
         }
 
+        var cost = OpenAiPricing.EstimateCost(
+            _model, completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount);
+
         _logger.LogInformation(
             new EventId(4002, "JdExtractionCompleted"),
-            "JD extraction completed. Title={Title} RequiredSkills={SkillCount} " +
-            "InputTokens={InputTokens} OutputTokens={OutputTokens}",
-            parsed.Title, parsed.RequiredSkills.Count,
-            completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount);
+            "JD extraction completed. Model={Model} Title={Title} RequiredSkills={SkillCount} " +
+            "DurationMs={DurationMs} InputTokens={InputTokens} OutputTokens={OutputTokens} EstimatedCostUsd={EstimatedCostUsd:F4}",
+            _model, parsed.Title, parsed.RequiredSkills.Count,
+            sw.ElapsedMilliseconds, completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount, cost);
 
         return MapResult(parsed, inputText.Length);
     }

@@ -1,6 +1,8 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -108,9 +110,13 @@ builder.Services.AddSwaggerGen();
 // Infrastructure: DbContext and (later) OpenAI clients.
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Health checks, including a PostgreSQL connectivity probe via AppDbContext.
+// Health checks split into liveness (process only) and readiness (process + DB).
+// live  → used by Railway/k8s to decide whether to restart the container.
+// ready → used to decide whether to route traffic; checks DB connectivity.
+// Keeping DB out of liveness prevents a Postgres blip from triggering a container restart.
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>("postgres");
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
+    .AddDbContextCheck<AppDbContext>("postgres", tags: ["ready"]);
 
 var app = builder.Build();
 
@@ -152,6 +158,8 @@ if (!app.Environment.IsProduction())
 app.UseRateLimiter();
 
 app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live",  new HealthCheckOptions { Predicate = r => r.Tags.Contains("live")  });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") });
 app.MapControllers();
 
 app.Run();

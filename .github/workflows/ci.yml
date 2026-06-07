@@ -31,13 +31,11 @@ jobs:
         run: dotnet test RecruiterAi.slnx --configuration Release --no-build --verbosity normal
 
   frontend:
-    name: Frontend · build
+    name: Frontend · lint + typecheck + build
     runs-on: ubuntu-latest
-    # Disabled until Stage 5 (React frontend). Change to: if: true
-    if: false
     defaults:
       run:
-        working-directory: web
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -46,10 +44,16 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install
         run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Build
         run: npm run build

@@ -195,7 +195,18 @@ public sealed class OpenAiCvGenerationService : ICvGenerationService
                 jsonSchemaIsStrict: true),
         };
 
+        var sw = Stopwatch.StartNew();
         var completion = await CallWithRetryAsync(messages, options, batchId, ct);
+        sw.Stop();
+
+        var cost = OpenAiPricing.EstimateCost(
+            _model, completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount);
+
+        _logger.LogInformation(new EventId(4010, "InferRequirementsCompleted"),
+            "Requirements inference completed. BatchId={BatchId} Model={Model} DurationMs={DurationMs} " +
+            "InputTokens={InputTokens} OutputTokens={OutputTokens} EstimatedCostUsd={EstimatedCostUsd:F4}",
+            batchId, _model, sw.ElapsedMilliseconds,
+            completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount, cost);
 
         var parsed = JsonSerializer.Deserialize<LlmInferredRequirements>(
             completion.Content[0].Text, JsonOptions)
@@ -263,7 +274,18 @@ public sealed class OpenAiCvGenerationService : ICvGenerationService
                 jsonSchemaIsStrict: true),
         };
 
+        var sw = Stopwatch.StartNew();
         var completion = await CallWithRetryAsync(messages, options, batchId, ct);
+        sw.Stop();
+
+        var cost = OpenAiPricing.EstimateCost(
+            _model, completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount);
+
+        _logger.LogInformation(new EventId(4011, "GenerateCandidatesCompleted"),
+            "Candidates generation call completed. BatchId={BatchId} Model={Model} DurationMs={DurationMs} " +
+            "InputTokens={InputTokens} OutputTokens={OutputTokens} EstimatedCostUsd={EstimatedCostUsd:F4}",
+            batchId, _model, sw.ElapsedMilliseconds,
+            completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount, cost);
 
         var parsed = JsonSerializer.Deserialize<LlmGeneratedCandidates>(
             completion.Content[0].Text, JsonOptions)

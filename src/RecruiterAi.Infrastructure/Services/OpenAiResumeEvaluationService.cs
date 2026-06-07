@@ -96,12 +96,15 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
 
         sw.Stop();
 
+        var cost = OpenAiPricing.EstimateCost(
+            _model, completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount);
+
         _logger.LogInformation(
             new EventId(3002, "OpenAiRequestCompleted"),
-            "OpenAI request completed. EvaluationId={EvaluationId} DurationMs={DurationMs} " +
-            "InputTokens={InputTokens} OutputTokens={OutputTokens}",
-            evaluationId, sw.ElapsedMilliseconds,
-            completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount);
+            "OpenAI request completed. EvaluationId={EvaluationId} Model={Model} DurationMs={DurationMs} " +
+            "InputTokens={InputTokens} OutputTokens={OutputTokens} EstimatedCostUsd={EstimatedCostUsd:F4}",
+            evaluationId, _model, sw.ElapsedMilliseconds,
+            completion.Usage.InputTokenCount, completion.Usage.OutputTokenCount, cost);
 
         LlmEvaluationResponse parsed;
         try
@@ -146,10 +149,7 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
             EvaluationDurationMs = (int)sw.ElapsedMilliseconds,
             InputTokens          = completion.Usage.InputTokenCount,
             OutputTokens         = completion.Usage.OutputTokenCount,
-            EstimatedCost        = CalculateCost(
-                completion.Usage.InputTokenCount,
-                completion.Usage.OutputTokenCount,
-                _model),
+            EstimatedCost        = cost,
             CreatedAt = DateTimeOffset.UtcNow,
             InputHash = ComputeInputHash(rawText, position.Description),
         };
@@ -247,15 +247,6 @@ public sealed class OpenAiResumeEvaluationService : IResumeEvaluationService
         var input = Encoding.UTF8.GetBytes(cvText + positionDescription);
         return Convert.ToHexString(SHA256.HashData(input)).ToLowerInvariant();
     }
-
-    // Pricing as of 2025 (USD per token). Best-effort estimate stored for cost visibility.
-    private static decimal CalculateCost(int inputTokens, int outputTokens, string model) =>
-        model switch
-        {
-            "gpt-4o-mini" => inputTokens * 0.00000015m + outputTokens * 0.0000006m,
-            "gpt-4o"      => inputTokens * 0.0000025m  + outputTokens * 0.000010m,
-            _             => 0m,
-        };
 
     // All properties in required array + additionalProperties:false — mandatory for strict mode.
     private const string EvaluationJsonSchema = """
