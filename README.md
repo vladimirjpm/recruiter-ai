@@ -113,8 +113,7 @@ copy .env.example .env
 notepad .env
 ```
 
-In the editor, set `LLM_API_KEY=sk-...` (copy from <https://platform.openai.com/api-keys>).  
-`Llm__ApiKey` further down in the file is for `dotnet run` — also fill it with the same key if you plan to run without Docker.
+In the editor, set `LLM_API_KEY=sk-...` (copy from <https://platform.openai.com/api-keys>).
 
 > Git Bash / macOS: use `cp .env.example .env`
 
@@ -136,17 +135,6 @@ npm run dev
 
 Open the URL printed by Vite (usually <http://localhost:5173>, may be 5174 if 5173 is taken).  
 API Swagger: <http://localhost:5150/swagger>
-
-<details>
-<summary>Run API without Docker (requires .NET 10 SDK)</summary>
-
-```cmd
-docker compose up -d postgres
-dotnet ef database update --project src/RecruiterAi.Infrastructure --startup-project src/RecruiterAi.Api
-dotnet run --project src/RecruiterAi.Api
-```
-
-</details>
 
 Endpoints:
 - Swagger UI — <http://localhost:5150/swagger>
