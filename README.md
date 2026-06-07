@@ -25,8 +25,9 @@ A recruiter pastes a job description, uploads CVs (or generates synthetic ones),
 1. Open the live UI.
 2. **Paste JD tab** → paste a job description → AI pre-fills title, country, seniority, required & nice-to-have skills with **evidence quotes** on hover.
 3. Upload one or more PDF CVs, or click **Generator** to synthesize a batch of CVs across 10 quality categories.
-4. Click **Screen** — every candidate gets a structured evaluation in 3–5 seconds.
-5. Sort by score, open a candidate to see reasoning, export to CSV.
+4. **Find Matching Existing Candidates** — on the Screening page, click the button to instantly discover candidates from other positions ranked by required-skill overlap. No OpenAI calls — pure text matching, sub-second. Select and attach; full AI screening runs afterward through the normal pipeline.
+5. Click **Screen** — every candidate gets a structured evaluation in 3–5 seconds.
+6. Sort by score, open a candidate to see reasoning, export to CSV.
 
 ### What proves it actually works
 
@@ -144,6 +145,10 @@ Endpoints:
 ---
 
 ## Deployment
+
+**Current flow:** GitHub Actions runs build + tests on every push to `main`. Deploy is triggered manually after green CI — Railway rebuilds from the latest `main`, Vercel picks up the push automatically.
+
+**Planned:** CI success → automatic deploy. Railway exposes a Deploy Hook (webhook URL); the Actions workflow would call it via `curl` only after all checks pass. Vercel supports the same pattern via `vercel deploy --prod` in CI. Not implemented yet — single-contributor project, manual gate is sufficient for now.
 
 The project deploys to **Railway** (API + Postgres) and **Vercel** (UI). Both pick up config from files committed in the repo:
 

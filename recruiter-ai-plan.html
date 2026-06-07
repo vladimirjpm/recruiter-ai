@@ -1009,6 +1009,21 @@
           <td><strong style="color:#f8fafc">URL query param <code>?positionId=</code> + localStorage fallback</strong></td>
           <td style="color:#94a3b8">URL is source of truth — shareable links, browser back/forward, refresh-safe. localStorage stores "last used position" only as the initial value when landing on a page without the query param. No global state library (Redux/Zustand) — overkill for the current scope.</td>
         </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Recruiter Score Override</td>
+          <td><strong style="color:#f8fafc">Delta model: <code>adjustedScore = clamp(aiScore + delta, 0, 100)</code> stored separately</strong></td>
+          <td style="color:#94a3b8">AI score is immutable — override is stored as a signed delta + comment + timestamp on the Evaluation row. UI shows both AI score (crossed out) and adjusted score. Rationale: preserves auditability — you can always see what the model said and why a human disagreed. No separate override table — delta lives on the evaluation to keep queries simple. Clamping is enforced server-side (0–100), not trusted from the client.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">Candidate Discovery (Find Matches)</td>
+          <td><strong style="color:#f8fafc">Skill-overlap prefilter, not AI evaluation — <code>POST /positions/{id}/find-matches</code></strong></td>
+          <td style="color:#94a3b8">Discovery is intentionally separated from evaluation. The endpoint scores each unattached candidate by counting how many required skills appear in their raw CV text (case-insensitive, slash-alias aware: "C#/.NET" → ["C#", ".NET"]). Score = matched / total × 100. No OpenAI call, no Evaluation row, no attachment — returns top 20 ranked candidates in &lt;50 ms. Recruiter selects and attaches; full AI screening runs afterward through the normal pipeline. <strong>Phase 2 upgrade path:</strong> replace text search with pgvector cosine similarity on <code>text-embedding-3-small</code> embeddings stored in <code>candidate_sections</code> — schema and extension already migrated, interface swap only.</td>
+        </tr>
+        <tr style="border-top:1px solid #1e293b">
+          <td style="padding:0.35rem 0.6rem;color:#94a3b8">CI / CD Pipeline</td>
+          <td><strong style="color:#f8fafc">CI on every push; deploy triggered manually after green CI</strong></td>
+          <td style="color:#94a3b8">GitHub Actions runs build + tests on every push to <code>main</code>. Railway and Vercel auto-deploy from <code>main</code> independently of CI result — acceptable for a single-contributor project where the developer controls what lands on main. <strong>Planned:</strong> CI success → Railway Deploy Hook via <code>curl</code> + <code>vercel deploy --prod</code> in Actions, so a red test build can never reach production.</td>
+        </tr>
       </tbody>
     </table>
   </div>

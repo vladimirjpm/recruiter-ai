@@ -17,6 +17,7 @@ import { ScoreBadge } from '../components/ScoreBadge';
 import { DetailDrawer } from '../components/DetailDrawer';
 import { CreatePositionModal } from '../components/CreatePositionModal';
 import { ResumeTextModal } from '../components/ResumeTextModal';
+import { FindMatchesModal } from '../components/FindMatchesModal';
 import { PositionSelector } from '../components/PositionSelector';
 import { EmptyState } from '../components/EmptyState';
 import type { Evaluation } from '../types';
@@ -40,6 +41,7 @@ export function ScreeningPage() {
   // a stale snapshot after an adjustment PATCH refreshes the evaluations query.
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
   const [resumeModal, setResumeModal] = useState<{ id: string; name: string } | null>(null);
+  const [showFindMatches, setShowFindMatches] = useState(false);
   // Recruiter can sort by raw AI score or by Final (AI + adjustment). Default: Final, so
   // the recruiter's own corrections drive the ranking.
   const [sortBy, setSortBy] = useState<'ai' | 'final'>('final');
@@ -204,9 +206,14 @@ export function ScreeningPage() {
           <PositionSelector value={positionId} onChange={setPositionId} className="flex-1 md:max-w-sm" />
         </div>
         {position && (
-          <button onClick={() => setShowEdit(true)} className="btn-secondary shrink-0">
-            Edit
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setShowFindMatches(true)} className="btn-secondary text-sm">
+              Find Matching Existing Candidates
+            </button>
+            <button onClick={() => setShowEdit(true)} className="btn-secondary shrink-0">
+              Edit
+            </button>
+          </div>
         )}
       </div>
 
@@ -491,6 +498,13 @@ export function ScreeningPage() {
           candidateId={resumeModal.id}
           candidateName={resumeModal.name}
           onClose={() => setResumeModal(null)}
+        />
+      )}
+
+      {showFindMatches && positionId && (
+        <FindMatchesModal
+          positionId={positionId}
+          onClose={() => setShowFindMatches(false)}
         />
       )}
     </div>

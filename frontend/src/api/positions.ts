@@ -18,3 +18,6 @@ export const deletePosition = (id: string) =>
 
 export const extractPosition = (jobDescriptionText: string) =>
   apiClient.post<ExtractionResult>('/positions/extract', { jobDescriptionText }).then(r => r.data);
+
+export const findMatchingCandidates = (positionId: string) =>
+  apiClient.post<import('../types').CandidateMatch[]>(`/positions/${positionId}/find-matches`).then(r => r.data);

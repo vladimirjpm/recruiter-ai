@@ -114,6 +114,20 @@ export interface ExtractionResult {
   };
 }
 
+export interface CandidateMatch {
+  id: string;
+  name: string;
+  email: string | null;
+  fileName: string;
+  storagePath: string | null;
+  language: string;
+  source: string;
+  uploadedAt: string;
+  skillOverlapPct: number;
+  matchedSkills: string[];
+  missingSkills: string[];
+}
+
 export interface GeneratedCandidate {
   id: string;
   name: string;

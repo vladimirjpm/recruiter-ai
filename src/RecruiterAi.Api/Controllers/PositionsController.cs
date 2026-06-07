@@ -259,6 +259,67 @@ public class PositionsController(
         return NoContent();
     }
 
+    // .NET: [HttpPost("{id:guid}/find-matches")]
+    // Skill-overlap discovery: finds candidates not yet attached to this position
+    // and ranks them by how many required skills appear in their CV text.
+    // Pure in-memory scoring — no OpenAI calls, no Evaluation rows created.
+    // Future: replace text search with pgvector cosine similarity on embeddings.
+    [HttpPost("{id:guid}/find-matches")]
+    public async Task<IActionResult> FindMatches(Guid id, CancellationToken ct)
+    {
+        var position = await db.Positions.FindAsync([id], ct);
+        if (position is null) return NotFound(new { error = "Position not found." });
+
+        var attachedIds = (await db.PositionCandidates
+            .Where(pc => pc.PositionId == id)
+            .Select(pc => pc.CandidateId)
+            .ToListAsync(ct))
+            .ToHashSet();
+
+        var candidates = await db.Candidates
+            .AsNoTracking()
+            .Where(c => !attachedIds.Contains(c.Id))
+            .ToListAsync(ct);
+
+        var required = position.RequiredSkills;
+
+        var matches = candidates
+            .Select(c =>
+            {
+                // Split "C#/.NET" → ["C#", ".NET"] and match if ANY token appears in CV text.
+                // Handles slash-separated aliases common in job postings.
+                var matched = required
+                    .Where(skill => skill.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Any(token => c.RawText.Contains(token, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                var missing = required
+                    .Where(skill => !skill.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Any(token => c.RawText.Contains(token, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                // Score is 0 when position has no required skills — still ranked by upload date below.
+                var pct = required.Count == 0 ? 0 : (int)Math.Round((double)matched.Count / required.Count * 100);
+                return (Candidate: c, Pct: pct, Matched: matched, Missing: missing);
+            })
+            .OrderByDescending(x => x.Pct)
+            .ThenByDescending(x => x.Candidate.UploadedAt)
+            .Take(20)
+            .Select(x => new CandidateMatchDto(
+                x.Candidate.Id,
+                x.Candidate.Name,
+                x.Candidate.Email,
+                x.Candidate.FileName,
+                x.Candidate.StoragePath,
+                x.Candidate.Language,
+                x.Candidate.Source.ToString(),
+                x.Candidate.UploadedAt,
+                x.Pct,
+                x.Matched,
+                x.Missing))
+            .ToList();
+
+        return Ok(matches);
+    }
+
     private static PositionDto ToDto(Position p) => new(
         p.Id, p.Title, p.Description, p.Country, p.SeniorityLevel,
         p.RequiredSkills, p.NiceToHaveSkills, p.CreatedAt, p.UpdatedAt);
@@ -364,3 +425,16 @@ public record ExtractionResultDto(
     ExtractionConfidenceDto Confidence,
     List<string> MissingInformation,
     ExtractionMetadataDto Metadata);
+
+public record CandidateMatchDto(
+    Guid Id,
+    string Name,
+    string? Email,
+    string FileName,
+    string? StoragePath,
+    string Language,
+    string Source,
+    DateTimeOffset UploadedAt,
+    int SkillOverlapPct,
+    List<string> MatchedSkills,
+    List<string> MissingSkills);
