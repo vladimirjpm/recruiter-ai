@@ -136,6 +136,16 @@ npm run dev
 Open the URL printed by Vite (usually <http://localhost:5173>, may be 5174 if 5173 is taken).  
 API Swagger: <http://localhost:5150/swagger>
 
+<details>
+<summary>Alternative: run API without Docker (requires .NET 10 SDK)</summary>
+
+```cmd
+docker compose up -d postgres
+dotnet run --project src/RecruiterAi.Api
+```
+
+</details>
+
 Endpoints:
 - Swagger UI — <http://localhost:5150/swagger>
 - Health (liveness) — <http://localhost:5150/health/live>
