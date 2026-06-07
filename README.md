@@ -12,6 +12,7 @@
 |---|---|
 | 🌐 **Live UI** | <https://recruiter-ai-gamma-woad.vercel.app> |
 | ⚙️ **Live API** | <https://recruiter-ai-production-992b.up.railway.app/health> |
+| 📦 **GitHub** | <https://github.com/vladimirjpm/recruiter-ai> |
 | 📋 **Plan** | [recruiter-ai-plan.html](recruiter-ai-plan.html) — full architecture & roadmap |
 
 ---
@@ -96,9 +97,16 @@ railway.toml · frontend/vercel.json
 
 ## Local setup
 
-**Prerequisites:** Docker Desktop · Node.js 18+
+**Prerequisites:** Docker Desktop · Node.js 20+ · Git
 
-**Step 1 — create `.env` and fill in your OpenAI key**
+**Step 1 — clone the repo**
+
+```cmd
+git clone https://github.com/vladimirjpm/recruiter-ai.git
+cd recruiter-ai
+```
+
+**Step 2 — create `.env` and fill in your OpenAI key**
 
 ```cmd
 copy .env.example .env
@@ -110,7 +118,7 @@ In the editor, set `LLM_API_KEY=sk-...` (copy from <https://platform.openai.com/
 
 > Git Bash / macOS: use `cp .env.example .env`
 
-**Step 2 — start Postgres + API**
+**Step 3 — start Postgres + API**
 
 ```cmd
 docker compose up -d
@@ -118,7 +126,7 @@ docker compose up -d
 
 Expected output: `Container recruiter-ai-postgres  Healthy` · `Container recruiter-ai-api  Started`
 
-**Step 3 — start the frontend**
+**Step 4 — start the frontend**
 
 ```cmd
 cd frontend
